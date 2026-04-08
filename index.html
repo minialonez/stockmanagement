@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>เบิก-รับ สต็อก</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; background: #f5f5f5; }
+
+/* ═══ LOGIN ═══ */
+#login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #1a56db, #1e40af); padding: 20px;
+  position: fixed; inset: 0; z-index: 100;
+  opacity: 1; transition: opacity .4s ease;
+}
+#login-screen.fade-out { opacity: 0; pointer-events: none; }
+.login-card {
+  background: #fff; border-radius: 16px; padding: 36px 28px;
+  width: 100%; max-width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,.25);
+}
+.login-logo { font-size: 48px; text-align: center; margin-bottom: 6px; }
+.login-title { text-align: center; font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 2px; }
+.login-sub { text-align: center; font-size: 12px; color: #6b7280; margin-bottom: 24px; }
+.login-card label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; display: block; }
+.login-card input { width: 100%; padding: 11px 14px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 15px; margin-bottom: 12px; }
+.login-card input:focus { border-color: #1a56db; outline: none; }
+.btn-login { width: 100%; padding: 13px; background: #1a56db; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+.btn-login:hover { background: #1e40af; }
+.login-error { margin-top: 12px; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 13px; text-align: center; }
+
+/* ═══ APP TRANSITION ═══ */
+#app { opacity: 0; transition: opacity .4s ease; }
+#app.visible { opacity: 1; }
+
+/* ═══ HEADER ═══ */
+.header { background: #1a56db; color: #fff; padding: 11px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.header-title { flex: 1; font-size: 14px; font-weight: bold; }
+.user-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(255,255,255,0.2); white-space: nowrap; }
+.cache-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.cache-badge.loading { background: rgba(255,200,0,0.35); }
+.cache-badge.ready   { background: rgba(0,255,120,0.28); }
+.cache-badge.error   { background: rgba(255,80,80,0.4); cursor: pointer; }
+.btn-logout { padding: 5px 11px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 7px; font-size: 12px; cursor: pointer; }
+
+/* ═══ TABS ═══ */
+.tabs { display: flex; background: #fff; border-bottom: 2px solid #e5e7eb; overflow-x: auto; }
+.tab { flex-shrink: 0; padding: 11px 13px; text-align: center; cursor: pointer; font-size: 12px; color: #6b7280; white-space: nowrap; }
+.tab.active { color: #1a56db; border-bottom: 2px solid #1a56db; margin-bottom: -2px; font-weight: 700; }
+
+/* ═══ FORM ═══ */
+.card { background: #fff; margin: 10px; padding: 14px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+label { display: block; font-size: 13px; color: #374151; margin-bottom: 4px; font-weight: 600; }
+input, select { width: 100%; padding: 9px 11px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 8px; background: #fff; }
+input:focus, select:focus { border-color: #1a56db; outline: none; }
+.btn { width: 100%; padding: 13px; border-radius: 10px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.btn-preview  { background: #1a56db; color: #fff; }
+.btn-transfer-confirm { background: #7c3aed; color: #fff; }
+.btn-add-wh { width: 100%; padding: 10px; border-radius: 10px; border: 2px dashed #1a56db; background: #eff6ff; color: #1a56db; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+.result { padding: 12px 14px; border-radius: 8px; margin: 8px 14px; font-size: 13px; }
+.result.success { background: #dcfce7; color: #166534; }
+.result.error   { background: #fee2e2; color: #991b1b; }
+.hidden { display: none; }
+
+/* ═══ WH GROUP ═══ */
+.wh-group { border: 2px solid #1e40af; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.wh-group-header { background: #1e40af; padding: 7px 10px; display: flex; gap: 8px; align-items: center; }
+.wh-group-header select { flex: 1; margin: 0; padding: 6px 10px; background: rgba(255,255,255,0.15); color: #fff; border: 1.5px solid rgba(255,255,255,0.3); border-radius: 7px; font-size: 13px; font-weight: 700; }
+.wh-group-header select option { background: #1e293b; }
+.btn-remove-group { background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 15px; border-radius: 6px; width: 30px; height: 30px; cursor: pointer; }
+.wh-group-body { padding: 8px 10px 2px; }
+
+/* ═══ ITEM LINE ═══ */
+.item-line { background: #fafafa; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 9px; margin-bottom: 7px; }
+.item-line.found    { border-color: #93c5fd; background: #eff6ff; }
+.item-line.notfound { border-color: #fca5a5; background: #fff5f5; }
+.item-row1 { display: grid; grid-template-columns: 145px 1fr 30px; gap: 5px; align-items: end; margin-bottom: 5px; }
+.item-row1 input { margin-bottom: 0; font-size: 12px; padding: 7px 9px; }
+.item-row2 { display: grid; gap: 5px; align-items: end; }
+.item-row2 input { margin-bottom: 0; font-size: 12px; padding: 6px 7px; }
+.field-label { font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 2px; display: block; }
+.name-input  { background: #f0f7ff; border-color: #93c5fd; color: #1e40af; cursor: default; }
+.name-input.err   { background: #fff5f5; border-color: #fca5a5; color: #dc2626; }
+.name-input.hint  { background: #f9fafb; border-color: #d1d5db; color: #6b7280; }
+.name-input.empty { background: #fff; border-color: #d1d5db; color: #9ca3af; }
+.barcode-badge { font-size: 10px; color: #6b7280; margin-top: 1px; display: block; }
+.stock-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-block; margin-top: 2px; }
+.stock-tag.ok   { background: #dcfce7; color: #166534; }
+.stock-tag.low  { background: #fef3c7; color: #92400e; }
+.stock-tag.zero { background: #fee2e2; color: #991b1b; }
+.actual-qty { font-size: 10px; color: #6b7280; }
+.btn-remove-item { background: #fee2e2; border: none; color: #dc2626; font-size: 14px; border-radius: 5px; width: 30px; height: 36px; cursor: pointer; margin-top: 16px; }
+.btn-add-item { width: 100%; padding: 6px; margin-bottom: 8px; border: 1.5px dashed #9ca3af; border-radius: 6px; background: #f9fafb; color: #6b7280; font-size: 12px; cursor: pointer; }
+.btn-add-item-simple { width: 100%; padding: 8px; margin-top: 6px; border: 1.5px dashed #7c3aed; border-radius: 7px; background: #f5f3ff; color: #7c3aed; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+/* ═══ SEARCH ═══ */
+.search-item { padding: 9px 11px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 6px; }
+.istock { font-weight: 700; }
+.istock.ok   { color: #16a34a; }
+.istock.low  { color: #d97706; }
+.istock.zero { color: #dc2626; }
+
+/* ═══ DOCUMENTS LIST ═══ */
+.doc-card {
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.doc-card:hover { border-color: #93c5fd; box-shadow: 0 2px 8px rgba(26,86,219,.1); }
+.doc-card.pending  { border-left: 4px solid #f59e0b; }
+.doc-card.approved { border-left: 4px solid #16a34a; }
+.doc-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.doc-card-no { font-weight: 700; font-size: 13px; color: #1e293b; flex: 1; }
+.doc-status-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.doc-status-badge.pending  { background: #fef3c7; color: #92400e; }
+.doc-status-badge.approved { background: #dcfce7; color: #166534; }
+.doc-card-meta { font-size: 11px; color: #6b7280; }
+.doc-filter { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.doc-filter-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid #d1d5db; background: #fff; font-size: 12px; cursor: pointer; color: #374151; }
+.doc-filter-btn.active { background: #1a56db; color: #fff; border-color: #1a56db; }
+.btn-delete-doc { padding: 3px 9px; background: #fee2e2; color: #dc2626; border: none; border-radius: 5px; font-size: 11px; cursor: pointer; }
+
+/* ═══ REPORT ═══ */
+.rpt-row-w  { background: #fff5f5; }
+.rpt-row-r  { background: #f0fdf4; }
+.rpt-row-t  { background: #f5f3ff; }
+.rpt-row-w:hover, .rpt-row-r:hover, .rpt-row-t:hover { filter: brightness(0.97); }
+.rpt-badge  { display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap; }
+.rpt-badge-w { background:#fee2e2;color:#dc2626; }
+.rpt-badge-r { background:#dcfce7;color:#16a34a; }
+.rpt-badge-t { background:#ede9fe;color:#7c3aed; }
+.rpt-qty-w { color:#dc2626;font-weight:700; }
+.rpt-qty-r { color:#16a34a;font-weight:700; }
+.rpt-qty-t { color:#7c3aed;font-weight:700; }
+.rpt-summary-box { padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;min-width:80px; }
+
+/* ═══ PRODUCTS ═══ */
+.prod-row { display:flex; align-items:center; gap:8px; padding:8px 11px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:5px; }
+.prod-row-info { flex:1; min-width:0; }
+.prod-row-code { font-size:12px; font-weight:700; color:#1e293b; }
+.prod-row-name { font-size:12px; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.prod-row-sub  { font-size:10px; color:#6b7280; }
+.prod-stock { font-size:12px; font-weight:700; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+.prod-stock.ok   { background:#dcfce7; color:#166534; }
+.prod-stock.low  { background:#fef3c7; color:#92400e; }
+.prod-stock.zero { background:#fee2e2; color:#991b1b; }
+.prod-form { background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:14px; margin-bottom:12px; }
+.prod-form.edit { background:#eff6ff; border-color:#93c5fd; }
+.prod-form label { font-size:12px; }
+.prod-form input, .prod-form select { font-size:13px; padding:8px 10px; }
+.prod-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.btn-save-prod   { padding:9px 18px; background:#16a34a; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; }
+.btn-save-prod.edit { background:#1a56db; }
+.btn-cancel-prod { padding:9px 14px; background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:8px; font-size:13px; cursor:pointer; }
+.btn-edit-prod   { padding:4px 9px; background:#eff6ff; color:#1a56db; border:1px solid #93c5fd; border-radius:5px; font-size:11px; cursor:pointer; }
+.new-product-card { background:#f0fdf4; border:1.5px dashed #86efac; border-radius:8px; padding:10px 12px; margin-top:8px; }
+
+/* ═══ WIRE SCRAPS ═══ */
+.scrap-filter-btn { padding:5px 12px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;font-size:12px;cursor:pointer;color:#374151; }
+.scrap-filter-btn.active { background:#0891b2;color:#fff;border-color:#0891b2; }
+.scrap-row { display:flex;align-items:center;gap:8px;padding:9px 11px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:5px;transition:border-color .15s; }
+.scrap-row:hover { border-color:#67e8f9; }
+.scrap-row.used { opacity:0.55; }
+.scrap-row-info { flex:1;min-width:0; }
+.scrap-row-title { font-size:12px;font-weight:700;color:#1e293b; }
+.scrap-row-sub { font-size:10px;color:#6b7280; }
+.scrap-row-len { font-size:13px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap; }
+.scrap-row-len.ok   { background:#cffafe;color:#0e7490; }
+.scrap-row-len.low  { background:#fef3c7;color:#92400e; }
+.scrap-row-len.used { background:#f3f4f6;color:#6b7280;text-decoration:line-through; }
+.scrap-status { font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap; }
+.scrap-status.avail  { background:#cffafe;color:#0e7490; }
+.scrap-status.reserved { background:#fef3c7;color:#92400e; }
+.scrap-status.used   { background:#f3f4f6;color:#6b7280; }
+.scrap-color-dot { width:14px;height:14px;border-radius:50%;border:1.5px solid #d1d5db;flex-shrink:0; }
+.scrap-form { background:#ecfeff;border:1.5px solid #67e8f9;border-radius:10px;padding:14px;margin-bottom:12px; }
+.scrap-form.edit { background:#f0f7ff;border-color:#93c5fd; }
+.scrap-form label { font-size:12px; }
+.scrap-form input,.scrap-form select { font-size:13px;padding:8px 10px; }
+.scrap-form-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+.btn-save-scrap { padding:9px 18px;background:#0891b2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer; }
+.btn-save-scrap.edit { background:#1a56db; }
+
+/* ═══ USERS ═══ */
+.user-row { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 6px; }
+.user-row-info { flex: 1; }
+.user-row-name { font-size: 13px; font-weight: 700; color: #1e293b; }
+.user-row-sub  { font-size: 11px; color: #6b7280; }
+.role-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+.role-badge.admin { background: #fef3c7; color: #92400e; }
+.role-badge.stock { background: #dbeafe; color: #1e40af; }
+.role-badge.sales { background: #dcfce7; color: #166534; }
+.btn-edit-user { padding: 4px 10px; background: #eff6ff; color: #1a56db; border: 1px solid #93c5fd; border-radius: 5px; font-size: 11px; cursor: pointer; }
+.user-form-card { background: #f0f7ff; border: 1.5px solid #93c5fd; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.user-form-card label { font-size: 12px; }
+.user-form-card input, .user-form-card select { font-size: 13px; padding: 8px 10px; }
+.btn-save-user { padding: 9px 18px; background: #1a56db; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-cancel-user { padding: 9px 14px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; cursor: pointer; }
+
+/* ═══ MODAL ═══ */
+#preview-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; overflow-y: auto; }
+#preview-modal.show { display: block; }
+#modal-inner { background: #fff; margin: 14px auto; max-width: 760px; border-radius: 12px; overflow: hidden; }
+.modal-topbar { background: #1e293b; color: #fff; padding: 11px 14px; display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.modal-topbar-title { flex: 1; font-weight: 700; font-size: 13px; min-width: 100px; }
+.mbar-btn { padding: 7px 12px; border-radius: 7px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; }
+.mbar-print     { background: #3b82f6; color: #fff; }
+.mbar-save      { background: #f59e0b; color: #fff; }
+.mbar-approve-w { background: #dc2626; color: #fff; }
+.mbar-approve-r { background: #16a34a; color: #fff; }
+.mbar-approve-t { background: #7c3aed; color: #fff; }
+.mbar-close     { background: #475569; color: #fff; }
+#doc-area { padding: 20px; }
+
+/* ═══ DOCUMENT STYLES ═══ */
+.doc-header { text-align: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #000; }
+.doc-title   { font-size: 18px; font-weight: 700; }
+.doc-company { font-size: 12px; color: #111; margin-top: 2px; font-weight: 600; }
+.doc-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 12px; font-size: 12px; }
+.doc-meta-item { display: flex; gap: 4px; align-items: center; }
+.doc-meta-label { font-weight: 700; white-space: nowrap; color: #000; }
+.doc-meta-item input[type=datetime-local] { font-size: 11px; padding: 2px 5px; margin: 0; border: 1px solid #d1d5db; border-radius: 4px; width: auto; }
+.edit-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 14px; }
+.edit-table th { background: #1a56db; color: #fff; padding: 6px 7px; text-align: left; }
+.edit-table td { padding: 5px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+.edit-table tr:nth-child(even) td { background: #f9fafb; }
+.edit-table tr.wh-row td { background: #1a56db !important; color: #fff !important; font-weight: 800 !important; font-size: 15px !important; padding: 10px 13px !important; letter-spacing: 0.3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.edit-table input[type=number] { width: 60px; padding: 3px 5px; margin: 0; border: 1.5px solid #93c5fd; border-radius: 4px; font-size: 11px; text-align: center; }
+.btn-del-row { background: none; border: none; color: #ef4444; font-size: 14px; cursor: pointer; }
+.doc-sign { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-top: 24px; }
+.doc-sign-box  { text-align: center; }
+.doc-sign-line { border-top: 2px solid #000; margin: 28px 10px 5px; }
+.doc-sign-label { font-size: 12px; color: #111; font-weight: 600; }
+.doc-footer { text-align: center; font-size: 11px; color: #374151; margin-top: 10px; border-top: 1px solid #9ca3af; padding-top: 8px; }
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; }
+.badge-pending  { background: #fef3c7; color: #92400e; }
+.badge-approved { background: #dcfce7; color: #166534; }
+
+@media print {
+  body * { visibility: hidden; }
+  #doc-area, #doc-area * { visibility: visible; }
+  #doc-area { position: absolute; top: 0; left: 0; width: 100%; padding: 18px; }
+  #preview-modal { position: absolute !important; overflow: visible !important; }
+  #modal-inner { margin: 0 !important; box-shadow: none !important; }
+  .modal-topbar, .btn-del-row, #doc-add-area { display: none !important; }
+  .edit-table input[type=number] { border: none; background: transparent; }
+  .edit-table input[type=text] { border: none; background: transparent; }
+  .edit-table { page-break-inside: auto; }
+  .edit-table tr { page-break-inside: avoid; }
+  .doc-sign { page-break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">📦</div>
+    <div class="login-title">เบิก-รับ สต็อก</div>
+    <div class="login-sub">บริษัท จงกลณี การไฟฟ้า จำกัด</div>
+    <label>ชื่อผู้ใช้</label>
+    <input id="lu" placeholder="username" autocomplete="username"
+      onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()">
+    <label>รหัสผ่าน</label>
+    <input id="lp" type="password" placeholder="password"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-login" onclick="doLogin()">🔐 เข้าสู่ระบบ</button>
+    <div id="lerr" class="login-error hidden"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div class="header">
+    <span class="header-title">📦 เบิก-รับ สต็อก จงกลณี การไฟฟ้า</span>
+    <span id="user-badge" class="user-badge"></span>
+    <span id="cache-badge" class="cache-badge loading">⏳</span>
+    <button onclick="loadCache()" style="padding:4px 9px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:7px;font-size:12px;cursor:pointer" title="รีเฟรชข้อมูลสินค้า">🔄</button>
+    <button class="btn-logout" onclick="doLogout()">ออก</button>
+  </div>
+  <div id="tabs-bar" class="tabs"></div>
+  <div id="result"></div>
+
+  <!-- TAB: เบิกของ -->
+  <div id="tab-withdraw" class="hidden">
+    <div class="card">
+      <label>ผู้เบิก</label><input id="op-w" placeholder="ชื่อพนักงาน">
+      <label>หมายเหตุ</label><input id="note-w" placeholder="โครงการ / ลูกค้า">
+      <div id="rows-w" style="margin-top:8px"></div>
+      <button class="btn-add-wh" onclick="addWarehouseGroup('w')">📦 เพิ่มโกดัง</button>
+      <button class="btn btn-preview" onclick="openPreview('เบิก')" style="margin-top:10px">📄 ดูตัวอย่างเอกสาร</button>
+    </div>
+  </div>
+
+  <!-- TAB: รับของเข้า -->
+  <div id="tab-receive" class="hidden">
+    <div class="card">
+      <label>ผู้รับของ</label><input id="op-r" placeholder="ชื่อพนักงาน">
+      <label>หมายเหตุ</label><input id="note-r" placeholder="ใบสั่งซื้อ / Supplier">
+      <div id="rows-r" style="margin-top:8px"></div>
+      <button class="btn-add-wh" onclick="addWarehouseGroup('r')">📦 เพิ่มโกดัง</button>
+      <button class="btn btn-preview" onclick="openPreview('รับเข้า')" style="margin-top:10px">📄 ดูตัวอย่างเอกสาร</button>
+    </div>
+  </div>
+
+  <!-- TAB: ย้ายโกดัง -->
+  <div id="tab-transfer" class="hidden">
+    <div class="card">
+      <label>ผู้ดำเนินการ</label><input id="op-t" placeholder="ชื่อพนักงาน">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label>จากโกดัง</label><select id="from-wh-t"><option value="">-- เลือก --</option></select></div>
+        <div><label>ไปโกดัง</label><select id="to-wh-t"><option value="">-- เลือก --</option></select></div>
+      </div>
+      <label>หมายเหตุ</label><input id="note-t" placeholder="เหตุผลการย้าย">
+      <div id="rows-t" style="margin-top:8px"></div>
+      <button class="btn-add-item-simple" onclick="addTransferItem()">+ เพิ่มสินค้า</button>
+      <button class="btn btn-transfer-confirm" onclick="openTransferPreview()" style="margin-top:10px">📄 ดูตัวอย่างเอกสาร</button>
+    </div>
+  </div>
+
+  <!-- TAB: ค้นหา -->
+  <div id="tab-search" class="hidden">
+    <div class="card">
+      <label>ค้นหาสินค้า</label>
+      <input id="search-q" placeholder="พิมพ์รหัส ชื่อ Barcode โกดัง... (เว้นวรรคระหว่างคำได้)" oninput="doSearch()">
+      <div id="search-results"></div>
+    </div>
+  </div>
+
+  <!-- TAB: เอกสาร -->
+  <div id="tab-docs" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-weight:700;font-size:14px;flex:1">📋 เอกสารที่บันทึกไว้</span>
+        <button onclick="loadDocs()" style="padding:5px 11px;background:#eff6ff;color:#1a56db;border:1px solid #93c5fd;border-radius:6px;font-size:12px;cursor:pointer">🔄 รีเฟรช</button>
+      </div>
+      <div class="doc-filter">
+        <button class="doc-filter-btn active" onclick="setDocFilter('all',this)">⏳ รอดำเนินการ</button>
+        <button class="doc-filter-btn" onclick="setDocFilter('อนุมัติแล้ว',this)">✅ อนุมัติแล้ว</button>
+        <button class="doc-filter-btn" onclick="setDocFilter('เบิก',this)">🔻 เบิก</button>
+        <button class="doc-filter-btn" onclick="setDocFilter('รับเข้า',this)">🔺 รับ</button>
+        <button class="doc-filter-btn" onclick="setDocFilter('ย้ายโกดัง',this)">🔄 ย้าย</button>
+      </div>
+      <input id="doc-search" placeholder="ค้นหาเลขที่ / ผู้ดำเนินการ..." oninput="renderDocList()"
+        style="margin-bottom:10px;font-size:13px;padding:8px 10px">
+      <div id="doc-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลดเอกสาร</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: จัดการสินค้า -->
+  <div id="tab-products" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">📦 จัดการสินค้า</span>
+        <input id="prod-search" placeholder="ค้นหารหัส / ชื่อ / โกดัง..." oninput="renderProductList()"
+          style="width:200px;font-size:12px;padding:6px 10px;margin:0">
+        <button onclick="showProductForm(null)" style="padding:6px 13px;background:#16a34a;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ เพิ่มสินค้า</button>
+        <button onclick="loadProducts()" style="padding:6px 11px;background:#eff6ff;color:#1a56db;border:1px solid #93c5fd;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div id="product-form-area"></div>
+      <div id="product-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลดสินค้า</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: เศษสายไฟ / ไฟริบบิ้น -->
+  <div id="tab-scraps" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">🔌 สต็อกเศษสายไฟ / ไฟริบบิ้น</span>
+        <button onclick="showScrapForm(null)" style="padding:6px 13px;background:#d97706;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ เพิ่มรายการ</button>
+        <button onclick="loadScraps()" style="padding:6px 11px;background:#fffbeb;color:#d97706;border:1px solid #fbbf24;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <input id="scrap-search" placeholder="ค้นหา รหัส / ชื่อ / หมายเหตุ..." oninput="renderScrapList()"
+        style="font-size:13px;padding:8px 10px;margin-bottom:10px">
+      <div id="scrap-form-area"></div>
+      <div id="scrap-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลดข้อมูล</p></div>
+
+      <!-- ประวัติการตัดสต็อก -->
+      <div style="margin-top:16px;border-top:2px solid #fbbf24;padding-top:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:13px;flex:1;color:#92400e">📋 ประวัติการตัดสต็อก</span>
+          <input type="date" id="scrap-log-from" style="font-size:12px;padding:5px 8px;margin:0;width:auto">
+          <input type="date" id="scrap-log-to" style="font-size:12px;padding:5px 8px;margin:0;width:auto">
+          <button onclick="loadScrapLog()" style="padding:5px 12px;background:#92400e;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔍 ดูประวัติ</button>
+        </div>
+        <div id="scrap-log-list"><p style="color:#9ca3af;font-size:12px">กดดูประวัติเพื่อโหลดข้อมูล</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: รายงาน -->
+  <div id="tab-report" class="hidden">
+    <div class="card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px">📊 รายงานการเบิก / รับเข้าสินค้า</div>
+
+      <!-- filter bar -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end">
+        <div>
+          <label style="font-size:11px;color:#6b7280;margin-bottom:2px">ประเภท</label>
+          <select id="rpt-type" style="font-size:13px;padding:7px 10px;margin-bottom:0;width:auto">
+            <option value="ทั้งหมด">ทั้งหมด</option>
+            <option value="เบิก">🔻 เบิกออก</option>
+            <option value="รับเข้า">🔺 รับเข้า</option>
+            <option value="ย้ายโกดัง">🔄 ย้ายโกดัง</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6b7280;margin-bottom:2px">จากวันที่</label>
+          <input type="date" id="rpt-from" style="font-size:13px;padding:7px 10px;margin-bottom:0;width:auto">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6b7280;margin-bottom:2px">ถึงวันที่</label>
+          <input type="date" id="rpt-to" style="font-size:13px;padding:7px 10px;margin-bottom:0;width:auto">
+        </div>
+        <button onclick="loadReport()" style="padding:8px 14px;background:#1a56db;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;height:38px">🔍 ค้นหา</button>
+        <button onclick="clearReportFilter()" style="padding:8px 12px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-size:13px;cursor:pointer;height:38px">ล้าง</button>
+      </div>
+
+      <!-- search by keyword -->
+      <input id="rpt-search" placeholder="ค้นหา รหัส / ชื่อสินค้า / โกดัง / ผู้ดำเนินการ..." oninput="renderReport()"
+        style="font-size:13px;padding:8px 11px;margin-bottom:10px">
+
+      <!-- summary badges -->
+      <div id="rpt-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+
+      <!-- table -->
+      <div style="overflow-x:auto">
+        <table id="rpt-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+          <thead>
+            <tr style="background:#1a56db;color:#fff">
+              <th style="padding:7px 8px;text-align:left;white-space:nowrap">วันที่-เวลา</th>
+              <th style="padding:7px 8px;text-align:center">ประเภท</th>
+              <th style="padding:7px 8px;text-align:left">รหัสสินค้า</th>
+              <th style="padding:7px 8px;text-align:left">ชื่อสินค้า</th>
+              <th style="padding:7px 8px;text-align:left" id="rpt-col-wh">โกดัง</th>
+              <th style="padding:7px 8px;text-align:center">จำนวน</th>
+              <th style="padding:7px 8px;text-align:center">คงเหลือ</th>
+              <th style="padding:7px 8px;text-align:left">ผู้ดำเนินการ</th>
+              <th style="padding:7px 8px;text-align:left">หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="rpt-tbody">
+            <tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="rpt-footer" style="font-size:12px;color:#6b7280;margin-top:8px;text-align:right"></div>
+    </div>
+  </div>
+
+  <!-- TAB: จัดการผู้ใช้ (admin) -->
+  <div id="tab-users" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-weight:700;font-size:14px;flex:1">👥 จัดการผู้ใช้</span>
+        <button onclick="showUserForm(null)" style="padding:5px 12px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">+ เพิ่มผู้ใช้</button>
+      </div>
+      <div id="user-form-area"></div>
+      <div id="user-list"><p style="color:#9ca3af;font-size:13px">กำลังโหลด...</p></div>
+    </div>
+  </div>
+
+  <!-- PREVIEW MODAL -->
+  <div id="preview-modal">
+    <div id="modal-inner">
+      <div class="modal-topbar">
+        <span class="modal-topbar-title" id="modal-title">เอกสาร</span>
+        <button class="mbar-btn mbar-print" onclick="window.print()">🖨️</button>
+        <button class="mbar-btn mbar-save"  id="btn-save"      onclick="saveDraft()">💾 บันทึก</button>
+        <button class="mbar-btn mbar-approve-w hidden" id="btn-approve-w" onclick="approve('เบิก')">✔ อนุมัติ</button>
+        <button class="mbar-btn mbar-approve-r hidden" id="btn-approve-r" onclick="approve('รับเข้า')">✔ อนุมัติ</button>
+        <button class="mbar-btn mbar-approve-t hidden" id="btn-approve-t" onclick="approveTransfer()">✔ อนุมัติ</button>
+        <button class="mbar-btn mbar-close"  onclick="closePreview()">✕</button>
+      </div>
+      <div id="doc-area"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  🔗 API CONFIG — ใส่ URL ของ Google Apps Script Web App
+//  Deploy → Manage deployments → Copy URL
+// ════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycby_XvWw9U_y_hc9L5vBkUtdo6C-KTPfj7PVPKHQTVVb5vnZOunFbueg1DbyzZN-lrE9Kg/exec';
+
+async function callAPI(action, params = {}) {
+  if (!API_URL) throw new Error('กรุณาตั้งค่า API_URL ใน index.html ก่อน');
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, ...params }),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error('HTTP Error ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error('Invalid response from server'); }
+}
+
+// ════════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════════
+const WH_LIST = ['ถนนสามัคคี','ดินสอ','กิฟฟารีน','ท่อเหล็ก','ท่อใหญ่','ฝั่งธน','สิโรรส'];
+// ROLE_TABS ใช้เป็น default เมื่อ user ไม่มี permissions กำหนด
+const ROLE_TABS = {
+  admin : ['withdraw','receive','transfer','search','docs','products','scraps','report','users'],
+  stock : ['withdraw','receive','transfer','search','docs','products','scraps','report'],
+  sales : ['withdraw','search','docs','scraps','report']
+};
+const ALL_TABS = ['withdraw','receive','transfer','search','docs','products','scraps','report','users'];
+const TAB_META = {
+  withdraw : '🔻 เบิกของ',
+  receive  : '🔺 รับของเข้า',
+  transfer : '🔄 ย้ายโกดัง',
+  search   : '🔍 ค้นหา',
+  docs     : '📋 เอกสาร',
+  products : '📦 สินค้า',
+  scraps   : '🔌 เศษสาย',
+  report   : '📊 รายงาน',
+  users    : '👥 ผู้ใช้'
+};
+
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+let currentUser = null;
+let DB = [], DB_READY = false;
+let groupCount = { w:0, r:0 };
+let itemCount  = {}, itemData = {};
+let transferItemCount = 0, transferItemData = {};
+let currentDocType = '', docNo = '';
+// [FIX #2] เก็บ operator & note ไว้ใน state สำหรับ saveDraft
+let currentDocOp = '', currentDocNote = '';
+let allDocs = [], docFilter = 'all';
+
+// ════════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ════════════════════════════════════════════════════
+function doLogin() {
+  const u = document.getElementById('lu').value.trim();
+  const p = document.getElementById('lp').value.trim();
+  if (!u || !p) { setLoginErr('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'); return; }
+  const errEl = document.getElementById('lerr');
+  errEl.textContent = '⏳ กำลังตรวจสอบ...';
+  errEl.classList.remove('hidden');
+  if (!API_URL) { setLoginErr('❌ กรุณาตั้งค่า API_URL ใน index.html ก่อน'); return; }
+  callAPI('login', { username: u, password: p })
+    .then(function(res) {
+      if (!res) { setLoginErr('❌ ไม่ได้รับข้อมูลจาก server — ตรวจสอบ Sheet USERS'); return; }
+      if (res.success) {
+        currentUser = res;
+        const loginEl = document.getElementById('login-screen');
+        const appEl   = document.getElementById('app');
+        loginEl.classList.add('fade-out');
+        appEl.classList.remove('hidden');
+        setTimeout(() => {
+          loginEl.style.display = 'none';
+          appEl.classList.add('visible');
+          initApp();
+        }, 400);
+      } else {
+        setLoginErr(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      }
+    })
+    .catch(function(e) {
+      setLoginErr('❌ ' + (e.message || 'เรียก server ไม่ได้ — ตรวจสอบ Deploy และสิทธิ์การเข้าถึง'));
+    });
+}
+function setLoginErr(msg) {
+  const el = document.getElementById('lerr');
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function doLogout() {
+  currentUser = null; DB = []; DB_READY = false;
+  const appEl   = document.getElementById('app');
+  const loginEl = document.getElementById('login-screen');
+  appEl.classList.remove('visible');
+  setTimeout(() => {
+    appEl.classList.add('hidden');
+    loginEl.style.display = '';
+    loginEl.classList.remove('fade-out');
+    document.getElementById('lu').value = '';
+    document.getElementById('lp').value = '';
+    document.getElementById('lerr').classList.add('hidden');
+  }, 350);
+}
+
+// ════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════
+function initApp() {
+  const roleLabel = { admin:'Admin', stock:'คลังสินค้า', sales:'ขาย' };
+  document.getElementById('user-badge').textContent =
+    currentUser.displayName + ' · ' + (roleLabel[currentUser.role] || currentUser.role);
+  const whOpts = WH_LIST.map(w => `<option>${w}</option>`).join('');
+  ['from-wh-t','to-wh-t'].forEach(id => {
+    document.getElementById(id).innerHTML = '<option value="">-- เลือก --</option>' + whOpts;
+  });
+  buildTabs();
+  ['op-w','op-r','op-t'].forEach(id => { document.getElementById(id).value = currentUser.displayName; });
+  addWarehouseGroup('w');
+  addWarehouseGroup('r');
+  addTransferItem();
+  loadCache();
+}
+
+// ════════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════════
+function _getAllowedTabs() {
+  const role = currentUser.role || '';
+  var tabs;
+  if (role === 'admin') {
+    tabs = ROLE_TABS['admin'];
+  } else if (currentUser.permissions) {
+    var perms = currentUser.permissions.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+    perms = perms.filter(function(p){ return p !== 'users' && p !== 'warehouse_detail' && p !== 'approve'; });
+    tabs = perms.length ? perms : ROLE_TABS[role] || ['withdraw','search','docs'];
+  } else {
+    tabs = ROLE_TABS[role] || ['withdraw','search','docs'];
+  }
+  // scraps ใช้ได้ทุกคน — inject ถ้ายังไม่มี
+  if (tabs.indexOf('scraps') === -1) {
+    tabs = tabs.slice(); // clone กัน mutate ต้นฉบับ
+    tabs.push('scraps');
+  }
+  return tabs;
+}
+
+// ════════════════════════════════════════════════════
+//  WAREHOUSE VISIBILITY PERMISSION
+// ════════════════════════════════════════════════════
+function _canSeeWarehouseDetail() {
+  if (!currentUser) return false;
+  if (currentUser.role === 'admin') return true;
+  const perms = (currentUser.permissions || '').split(',').map(p => p.trim());
+  return perms.includes('warehouse_detail');
+}
+
+// รวมสินค้ารหัสเดียวกันจากหลายโกดัง เป็นแถวเดียว (สำหรับ user ที่ไม่มีสิทธิ์ดูรายละเอียดโกดัง)
+function _aggregateByCode(items) {
+  const map = {};
+  items.forEach(i => {
+    const key = i.code || i._code;
+    if (!map[key]) {
+      map[key] = {
+        code     : i.code,
+        name     : i.name,
+        unit     : i.unit,
+        barcode  : i.barcode || '',
+        unitFactor: i.unitFactor || 1,
+        stock    : 0,
+        _whCount : 0,
+        // เก็บรายชื่อ warehouse ไว้สำหรับ internal ใช้ (ไม่แสดงผล)
+        _warehouses: []
+      };
+    }
+    map[key].stock += (Number(i.stock) || 0);
+    map[key]._whCount++;
+    if (i.warehouse && !map[key]._warehouses.includes(i.warehouse)) {
+      map[key]._warehouses.push(i.warehouse);
+    }
+  });
+  return Object.values(map);
+}
+
+function buildTabs() {
+  const bar = document.getElementById('tabs-bar');
+  const allowed = _getAllowedTabs();
+  bar.innerHTML = '';
+  allowed.forEach((tid, i) => {
+    const el = document.createElement('div');
+    el.className = 'tab' + (i === 0 ? ' active' : '');
+    el.id = 'tabn-' + tid;
+    el.textContent = TAB_META[tid];
+    el.onclick = () => switchTab(tid);
+    bar.appendChild(el);
+  });
+  switchTab(allowed[0]);
+}
+function switchTab(tid) {
+  document.getElementById('result').innerHTML = '';
+  Object.keys(TAB_META).forEach(id => {
+    const el = document.getElementById('tab-' + id);
+    if (el) el.classList.toggle('hidden', id !== tid);
+    const btn = document.getElementById('tabn-' + id);
+    if (btn) btn.classList.toggle('active', id === tid);
+  });
+  if (tid === 'docs')     loadDocs();
+  if (tid === 'products') loadProducts();
+  if (tid === 'scraps')   loadScraps();
+  if (tid === 'users')    loadUsers();
+  if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
+}
+
+// ════════════════════════════════════════════════════
+//  CACHE
+// ════════════════════════════════════════════════════
+function _buildDB(res) {
+  return (res || []).map(i => ({ ...i,
+    _code: String(i.code||'').trim().toUpperCase(),
+    _name: String(i.name||'').trim().toUpperCase(),
+    _wh  : String(i.warehouse||'').trim()
+  }));
+}
+function _onCacheOK(res) {
+  const badge = document.getElementById('cache-badge');
+  DB = _buildDB(res); DB_READY = true;
+  badge.textContent = '✅ ' + DB.length + ' รายการ';
+  badge.className   = 'cache-badge ready'; badge.onclick = null;
+}
+function _onCacheFail() {
+  const badge = document.getElementById('cache-badge');
+  badge.textContent = '⏳ fallback...';
+  callAPI('searchItems', { query: '' })
+    .then(_onCacheOK)
+    .catch(() => { badge.textContent = '❌ แตะเพื่อลองใหม่'; badge.className = 'cache-badge error'; badge.onclick = loadCache; });
+}
+function loadCache() {
+  const badge = document.getElementById('cache-badge');
+  badge.textContent = '⏳ กำลังโหลด...'; badge.className = 'cache-badge loading'; DB_READY = false;
+  callAPI('getAllItems').then(_onCacheOK).catch(_onCacheFail);
+}
+function findExact(code, wh) {
+  const c = code.trim().toUpperCase(), w = (wh||'').trim();
+  return DB.find(i => i._code === c && (!w || i._wh === w)) || null;
+}
+function filterDB(q, wh) {
+  const w = (wh||'').trim();
+  const tokens = (q||'').trim().toUpperCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return [];
+  return DB.filter(i => {
+    const hay = [i._code, i._name, (i.barcode||'').toUpperCase(), (i.warehouse||'').toUpperCase(), (i.unit||'').toUpperCase(), (i.floor||'').toUpperCase()].join(' ');
+    return tokens.every(t => hay.includes(t)) && (!w || i._wh === w);
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  WAREHOUSE GROUPS
+// ════════════════════════════════════════════════════
+function addWarehouseGroup(s) {
+  const gid = ++groupCount[s];
+  itemCount[`${s}-${gid}`] = 0;
+  const whOpts = WH_LIST.map(w => `<option>${w}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'wh-group'; div.id = `whg-${s}-${gid}`;
+  div.innerHTML = `
+    <div class="wh-group-header">
+      <select id="wh-${s}-${gid}" onchange="revalidateGroup('${s}',${gid})">
+        <option value="">📦 เลือกโกดัง</option>${whOpts}
+      </select>
+      <button class="btn-remove-group" onclick="removeGroup('${s}',${gid})">✕</button>
+    </div>
+    <div class="wh-group-body">
+      <div id="items-${s}-${gid}"></div>
+      <button class="btn-add-item" onclick="addItem('${s}',${gid})">+ เพิ่มสินค้า</button>
+    </div>`;
+  document.getElementById(`rows-${s}`).appendChild(div);
+  addItem(s, gid);
+}
+function removeGroup(s, gid) {
+  document.getElementById(`whg-${s}-${gid}`)?.remove();
+  Object.keys(itemData).filter(k => k.startsWith(`${s}-${gid}-`)).forEach(k => delete itemData[k]);
+}
+function revalidateGroup(s, gid) {
+  for (let iid = 1; iid <= itemCount[`${s}-${gid}`]; iid++)
+    if (document.getElementById(`iline-${s}-${gid}-${iid}`)) lookupItem(s, gid, iid);
+}
+
+// ════════════════════════════════════════════════════
+//  ITEM LINE
+// ════════════════════════════════════════════════════
+function addItem(s, gid) {
+  const iid = ++itemCount[`${s}-${gid}`];
+  const key = `${s}-${gid}-${iid}`;
+  const row2cols = '64px 64px 56px 78px 1fr';
+  const div = document.createElement('div');
+  div.className = 'item-line'; div.id = `iline-${key}`;
+  div.innerHTML = `
+    <div class="item-row1">
+      <div>
+        <span class="field-label">รหัสสินค้า</span>
+        <input id="code-${key}" placeholder="รหัส / ชื่อสินค้า / Barcode" oninput="lookupItem('${s}',${gid},${iid})">
+      </div>
+      <div>
+        <span class="field-label">ชื่อสินค้า</span>
+        <input id="iname-${key}" class="name-input empty" readonly placeholder="— อัตโนมัติ —">
+        <span id="ibc-${key}" class="barcode-badge hidden"></span>
+        <span id="iloc-${key}" class="barcode-badge hidden" style="color:#7c3aed"></span>
+      </div>
+      <button class="btn-remove-item" onclick="removeItem('${key}')">✕</button>
+    </div>
+    <div class="item-row2" style="grid-template-columns:${row2cols}">
+      <div><span class="field-label">จำนวน</span>
+        <input id="qty-${key}" type="number" min="1" placeholder="0" style="text-align:center" oninput="updateActual('${key}')"></div>
+      <div><span class="field-label">หน่วย</span>
+        <input id="unit-${key}" class="name-input" readonly placeholder="—"></div>
+      <div><span class="field-label">อัตรา</span>
+        <input id="factor-${key}" type="number" min="1" value="1" readonly
+          style="text-align:center;background:#f3f4f6;color:#6b7280;cursor:default"></div>
+      <div><span class="field-label" style="color:#7c3aed">📍 ชั้น/ห้อง</span>
+        <input id="floor-${key}" placeholder="เช่น ชั้น 1" style="border-color:#c4b5fd;background:#faf5ff"></div>
+      <div style="padding-top:14px">
+        <span id="istock-${key}" class="stock-tag hidden"></span>
+        <span id="iactual-${key}" class="actual-qty hidden"></span>
+      </div>
+    </div>
+    <div style="margin-top:4px">
+      <span class="field-label" style="color:#f59e0b">📝 หมายเหตุรายการ (ไม่บังคับ)</span>
+      <input id="remark-${key}" placeholder="เช่น ของลูกค้า / เก็บที่ร้าน / ชำรุด"
+        style="font-size:12px;padding:6px 9px;border-color:#fde68a;background:#fffbeb;margin-bottom:0">
+    </div>`;
+  document.getElementById(`items-${s}-${gid}`).appendChild(div);
+}
+function removeItem(key) { document.getElementById(`iline-${key}`)?.remove(); delete itemData[key]; }
+function updateActual(key) {
+  const qty = Number(document.getElementById(`qty-${key}`)?.value || 0);
+  const fac = Number(document.getElementById(`factor-${key}`)?.value || 1);
+  const el  = document.getElementById(`iactual-${key}`);
+  if (!el) return;
+  if (qty > 0 && fac > 1) { el.textContent = `= ${qty*fac} ชิ้น`; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
+}
+
+// ════════════════════════════════════════════════════
+//  LOOKUP
+// ════════════════════════════════════════════════════
+function lookupItem(s, gid, iid) {
+  const key = `${s}-${gid}-${iid}`;
+  const codeEl = document.getElementById(`code-${key}`);
+  const nameInp = document.getElementById(`iname-${key}`);
+  const unitInp = document.getElementById(`unit-${key}`);
+  const factorInp = document.getElementById(`factor-${key}`);
+  const stockTag = document.getElementById(`istock-${key}`);
+  const bcTag   = document.getElementById(`ibc-${key}`);
+  const lineEl  = document.getElementById(`iline-${key}`);
+  if (!codeEl) return;
+  const code = codeEl.value.trim();
+  const wh   = document.getElementById(`wh-${s}-${gid}`)?.value || '';
+
+  function reset() {
+    nameInp.value = ''; nameInp.className = 'name-input empty';
+    nameInp.placeholder = '— อัตโนมัติ —';
+    unitInp.value = ''; if (factorInp) factorInp.value = '1';
+    const fi = document.getElementById(`floor-${key}`);
+    if (fi) fi.value = '';
+    stockTag.className = 'stock-tag hidden'; bcTag?.classList.add('hidden');
+    document.getElementById(`iloc-${key}`)?.classList.add('hidden');
+    lineEl.className = 'item-line'; delete itemData[key];
+  }
+
+  if (code.length < 3) { reset(); return; }
+  if (!DB_READY) { nameInp.value = '⏳ กำลังโหลด...'; nameInp.className = 'name-input hint'; return; }
+
+  let item = findExact(code, wh);
+  if (!item) {
+    const candidates = filterDB(code, wh);
+    if (candidates.length === 1) {
+      item = candidates[0];
+    } else if (candidates.length > 1) {
+      _showPickerDropdown(key, s, gid, iid, candidates, nameInp, lineEl);
+      return;
+    }
+  }
+
+  if (item) {
+    _fillItem(key, item, nameInp, unitInp, factorInp, stockTag, bcTag, lineEl, s);
+    updateActual(key); return;
+  }
+
+  delete itemData[key]; lineEl.className = 'item-line notfound';
+  nameInp.value = wh ? `ไม่พบ "${code}" ในโกดัง ${wh}` : `ไม่พบ "${code}"`;
+  nameInp.className = 'name-input err';
+  stockTag.className = 'stock-tag hidden';
+  document.getElementById(`picker-${key}`)?.remove();
+  if (s === 'r' && (currentUser?.role === 'admin' || currentUser?.role === 'stock')) {
+    document.getElementById(`quickadd-${key}`)?.remove();
+    const btn = document.createElement('button');
+    btn.id = `quickadd-${key}`;
+    btn.style.cssText = 'margin-top:4px;width:100%;padding:7px;background:#f0fdf4;color:#16a34a;border:1.5px dashed #86efac;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;';
+    btn.textContent = '+ เพิ่ม "' + code + '" เป็นสินค้าใหม่';
+    btn.onclick = () => {
+      switchTab('products');
+      showProductForm(null, { code, warehouse: wh || '' });
+    };
+    lineEl.appendChild(btn);
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  TRANSFER ITEMS
+// ════════════════════════════════════════════════════
+function addTransferItem() {
+  const iid = ++transferItemCount, key = `t-${iid}`;
+  const div = document.createElement('div');
+  div.className = 'item-line'; div.id = `tline-${key}`;
+  div.innerHTML = `
+    <div class="item-row1">
+      <div><span class="field-label">รหัสสินค้า</span>
+        <input id="tcode-${key}" placeholder="รหัส / ชื่อสินค้า / Barcode" oninput="lookupTransferItem(${iid})"></div>
+      <div>
+        <span class="field-label">ชื่อสินค้า</span>
+        <input id="tname-${key}" class="name-input empty" readonly placeholder="— อัตโนมัติ —">
+        <span id="tloc-${key}" class="barcode-badge hidden" style="color:#7c3aed"></span>
+      </div>
+      <button class="btn-remove-item" onclick="removeTransferItem('${key}')">✕</button>
+    </div>
+    <div class="item-row2" style="grid-template-columns:64px 64px 56px 78px 1fr">
+      <div><span class="field-label">จำนวน</span>
+        <input id="tqty-${key}" type="number" min="1" placeholder="0" style="text-align:center" oninput="updateTActual('${key}')"></div>
+      <div><span class="field-label">หน่วย</span>
+        <div id="tunit-${key}" class="name-input" style="display:flex;align-items:center;min-height:36px;font-size:12px;color:#1e40af;background:#f0f7ff;border:1.5px solid #93c5fd;border-radius:8px;padding:0 8px;">—</div></div>
+      <div><span class="field-label">อัตรา</span>
+        <input id="tfactor-${key}" type="number" min="1" value="1" readonly
+          style="text-align:center;background:#f3f4f6;color:#6b7280;cursor:default"></div>
+      <div><span class="field-label" style="color:#7c3aed">📍 ชั้น/ห้อง</span>
+        <input id="tfloor-${key}" placeholder="เช่น ชั้น 1" style="border-color:#c4b5fd;background:#faf5ff"></div>
+      <div style="padding-top:14px">
+        <span id="tstock-${key}" class="stock-tag hidden"></span>
+        <span id="tactual-${key}" class="actual-qty hidden"></span>
+      </div>
+    </div>
+    <div style="margin-top:4px">
+      <span class="field-label" style="color:#f59e0b">📝 หมายเหตุรายการ (ไม่บังคับ)</span>
+      <input id="tremark-${key}" placeholder="เช่น ของลูกค้า / ชำรุด / แยกล็อต"
+        style="font-size:12px;padding:6px 9px;border-color:#fde68a;background:#fffbeb;margin-bottom:0">
+    </div>`;
+  document.getElementById('rows-t').appendChild(div);
+}
+function removeTransferItem(key) { document.getElementById(`tline-${key}`)?.remove(); delete transferItemData[key]; }
+function updateTActual(key) {
+  const q = Number(document.getElementById(`tqty-${key}`)?.value||0);
+  const f = Number(document.getElementById(`tfactor-${key}`)?.value||1);
+  const el = document.getElementById(`tactual-${key}`);
+  if (!el) return;
+  if (q > 0 && f > 1) { el.textContent = `= ${q*f} ชิ้น`; el.classList.remove('hidden'); } else el.classList.add('hidden');
+}
+// ════════════════════════════════════════════════════
+//  LOOKUP HELPERS
+// ════════════════════════════════════════════════════
+function _fillItem(key, item, nameInp, unitInp, factorInp, stockTag, bcTag, lineEl, s) {
+  const cls = item.stock <= 0 ? 'zero' : item.stock <= 10 ? 'low' : 'ok';
+  const codeInp = document.getElementById(`code-${key}`);
+  if (codeInp) codeInp.value = item.code;
+  nameInp.value = item.name; nameInp.className = 'name-input';
+  unitInp.value = item.unit;
+  if (factorInp) factorInp.value = item.unitFactor || 1;
+  stockTag.textContent = item.stock <= 0 ? '⚠ หมดสต็อก'
+    : item.stock <= 10 ? `⚠ เหลือน้อย: ${item.stock} ${item.unit}`
+    : `✅ ${item.stock} ${item.unit}`;
+  stockTag.className = `stock-tag ${cls}`;
+  if (bcTag) {
+    if (item.barcode) { bcTag.textContent = '🔖 ' + item.barcode; bcTag.classList.remove('hidden'); }
+    else bcTag.classList.add('hidden');
+  }
+  const fi = document.getElementById(`floor-${key}`);
+  if (fi && !fi.value) fi.value = item.floor || '';
+  const locBadge = document.getElementById(`iloc-${key}`);
+  if (locBadge) {
+    locBadge.textContent = `📍 ${item.warehouse}${item.floor ? ' · ' + item.floor : ''}`;
+    locBadge.classList.remove('hidden');
+  }
+  lineEl.className = 'item-line found';
+  itemData[key] = item;
+  document.getElementById(`picker-${key}`)?.remove();
+}
+
+function _showPickerDropdown(key, s, gid, iid, candidates, nameInp, lineEl) {
+  document.getElementById(`picker-${key}`)?.remove();
+  nameInp.value = `พบ ${candidates.length} รายการ — เลือกด้านล่าง`;
+  nameInp.className = 'name-input hint';
+  lineEl.className = 'item-line';
+
+  const wrap = document.createElement('div');
+  wrap.id = `picker-${key}`;
+  wrap.style.cssText = 'margin-top:4px;border:1.5px solid #93c5fd;border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto;background:#fff;';
+
+  candidates.forEach(item => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:7px 10px;cursor:pointer;border-bottom:1px solid #e5e7eb;font-size:12px;';
+    row.innerHTML = `<div style="font-weight:700;color:#1e40af">${item.code}</div>
+      <div style="color:#374151">${item.name}</div>
+      <div style="color:#6b7280;font-size:10px">📍 ${item.warehouse} ${item.floor} · คงเหลือ: ${item.stock} ${item.unit}${item.barcode?' · 🔖'+item.barcode:''}</div>`;
+    row.onmouseover = () => row.style.background = '#eff6ff';
+    row.onmouseout  = () => row.style.background = '#fff';
+    row.onclick = () => {
+      const codeEl = document.getElementById(`code-${key}`);
+      if (codeEl) codeEl.value = item.code;
+      const unitInp   = document.getElementById(`unit-${key}`);
+      const factorInp = document.getElementById(`factor-${key}`);
+      const stockTag  = document.getElementById(`istock-${key}`);
+      const bcTag     = document.getElementById(`ibc-${key}`);
+      _fillItem(key, item, nameInp, unitInp, factorInp, stockTag, bcTag, lineEl, s);
+      updateActual(key);
+    };
+    wrap.appendChild(row);
+  });
+
+  nameInp.parentNode.appendChild(wrap);
+}
+
+function _fillTransferItem(key, item, nameInp, unitInp, factorInp, stockTag, lineEl) {
+  const codeEl = document.getElementById(`tcode-${key}`);
+  if (codeEl) codeEl.value = item.code;
+  const cls = item.stock <= 0 ? 'zero' : item.stock <= 10 ? 'low' : 'ok';
+  nameInp.value = item.name; nameInp.className = 'name-input';
+  if (unitInp) unitInp.textContent = item.unit || '—';
+  if (factorInp) factorInp.value = item.unitFactor || 1;
+  stockTag.textContent = `✅ ${item.stock} ${item.unit}`; stockTag.className = `stock-tag ${cls}`;
+  const tfi = document.getElementById(`tfloor-${key}`);
+  if (tfi && !tfi.value) tfi.value = item.floor || '';
+  const locBadge = document.getElementById(`tloc-${key}`);
+  if (locBadge) {
+    locBadge.textContent = `📍 ${item.warehouse}${item.floor ? ' · ' + item.floor : ''}`;
+    locBadge.classList.remove('hidden');
+  }
+  lineEl.className = 'item-line found';
+  transferItemData[key] = item;
+  document.getElementById(`tpicker-${key}`)?.remove();
+}
+
+function lookupTransferItem(iid) {
+  const key = `t-${iid}`;
+  const codeEl   = document.getElementById(`tcode-${key}`);
+  const nameInp  = document.getElementById(`tname-${key}`);
+  const unitInp  = document.getElementById(`tunit-${key}`);
+  const factorInp= document.getElementById(`tfactor-${key}`);
+  const stockTag = document.getElementById(`tstock-${key}`);
+  const lineEl   = document.getElementById(`tline-${key}`);
+  const locBadge = document.getElementById(`tloc-${key}`);
+  if (!codeEl) return;
+  const code = codeEl.value.trim();
+  const wh   = document.getElementById('from-wh-t')?.value || '';
+
+  function reset() {
+    nameInp.value = ''; nameInp.className = 'name-input empty';
+    if (unitInp) unitInp.textContent = '—';
+    stockTag.className = 'stock-tag hidden';
+    lineEl.className = 'item-line';
+    if (locBadge) locBadge.classList.add('hidden');
+    const tfi = document.getElementById(`tfloor-${key}`); if (tfi) tfi.value = '';
+    document.getElementById(`tpicker-${key}`)?.remove();
+    delete transferItemData[key];
+  }
+
+  if (code.length < 3) { reset(); return; }
+  if (!DB_READY) { nameInp.value = '⏳'; nameInp.className = 'name-input hint'; return; }
+
+  let item = findExact(code, wh);
+  if (!item) {
+    const candidates = filterDB(code, wh);
+    if (candidates.length === 1) {
+      item = candidates[0];
+    } else if (candidates.length > 1) {
+      document.getElementById(`tpicker-${key}`)?.remove();
+      nameInp.value = `พบ ${candidates.length} รายการ — เลือกด้านล่าง`;
+      nameInp.className = 'name-input hint';
+      lineEl.className = 'item-line';
+      const wrap = document.createElement('div');
+      wrap.id = `tpicker-${key}`;
+      wrap.style.cssText = 'margin-top:4px;border:1.5px solid #93c5fd;border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto;background:#fff;';
+      candidates.forEach(ci => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:7px 10px;cursor:pointer;border-bottom:1px solid #e5e7eb;font-size:12px;';
+        row.innerHTML = `<div style="font-weight:700;color:#1e40af">${ci.code}</div>
+          <div style="color:#374151">${ci.name}</div>
+          <div style="color:#7c3aed;font-size:10px">📍 ${ci.warehouse}${ci.floor?' · '+ci.floor:''} · คงเหลือ: ${ci.stock} ${ci.unit}</div>`;
+        row.onmouseover = () => row.style.background = '#eff6ff';
+        row.onmouseout  = () => row.style.background = '#fff';
+        row.onclick = () => { _fillTransferItem(key, ci, nameInp, unitInp, factorInp, stockTag, lineEl); updateTActual(key); };
+        wrap.appendChild(row);
+      });
+      nameInp.parentNode.appendChild(wrap);
+      return;
+    }
+  }
+
+  if (item) {
+    _fillTransferItem(key, item, nameInp, unitInp, factorInp, stockTag, lineEl);
+    updateTActual(key); return;
+  }
+
+  delete transferItemData[key]; lineEl.className = 'item-line notfound';
+  document.getElementById(`tpicker-${key}`)?.remove();
+  if (locBadge) locBadge.classList.add('hidden');
+  const hints = filterDB(code, wh).slice(0, 3);
+  nameInp.value = hints.length ? `💡 ${hints.map(i=>i.code).join(' / ')}` : `ไม่พบ "${code}"`;
+  nameInp.className = hints.length ? 'name-input hint' : 'name-input err';
+}
+
+// ════════════════════════════════════════════════════
+//  COLLECT ITEMS FOR PREVIEW
+// ════════════════════════════════════════════════════
+function collectItems(s) {
+  const groups = document.querySelectorAll(`#rows-${s} .wh-group`);
+  const allItems = []; let hasError = false;
+  groups.forEach(g => {
+    const gid = g.id.split('-')[2];
+    const wh  = document.getElementById(`wh-${s}-${gid}`)?.value || '';
+    if (!wh) { hasError = true; return; }
+    g.querySelectorAll('.item-line').forEach(lineEl => {
+      const key = lineEl.id.replace('iline-', '');
+      if (!key || !document.getElementById(`code-${key}`)) return;
+      const code   = document.getElementById(`code-${key}`)?.value.trim() || '';
+      const qty    = Number(document.getElementById(`qty-${key}`)?.value || 0);
+      const info   = itemData[key];
+      const factor = Number(document.getElementById(`factor-${key}`)?.value || 1);
+      if (!code && !qty) return;
+      if (!code || !qty) { hasError = true; return; }
+      const floorVal = document.getElementById(`floor-${key}`)?.value.trim() || info?.floor || '';
+      const remarkVal = document.getElementById(`remark-${key}`)?.value.trim() || '';
+      allItems.push({ code, warehouse: wh, qty, factor,
+        name: info?.name||code, unit: info?.unit||'', floor: floorVal,
+        barcode: info?.barcode||'', remark: remarkVal });
+    });
+  });
+  return { allItems, hasError };
+}
+
+// ════════════════════════════════════════════════════
+//  OPEN PREVIEW
+// ════════════════════════════════════════════════════
+function openPreview(type) {
+  const s = type === 'เบิก' ? 'w' : 'r';
+  const op   = document.getElementById(`op-${s}`).value.trim();
+  const note = document.getElementById(`note-${s}`).value.trim();
+  if (!op) { showResult('กรุณากรอกชื่อผู้ดำเนินการ', false); return; }
+  const { allItems, hasError } = collectItems(s);
+  if (hasError)         { showResult('มีรายการหรือโกดังที่ไม่ครบ', false); return; }
+  if (!allItems.length) { showResult('ไม่มีรายการ', false); return; }
+  currentDocType = type;
+  // [FIX #2] เก็บ op/note ไว้ใน state
+  currentDocOp   = op;
+  currentDocNote = note;
+  buildDocHTML(type, allItems, op, note, false, '');
+}
+
+function openTransferPreview() {
+  const op    = document.getElementById('op-t').value.trim();
+  const fromW = document.getElementById('from-wh-t').value;
+  const toW   = document.getElementById('to-wh-t').value;
+  const note  = document.getElementById('note-t').value.trim();
+  if (!op)           { showResult('กรุณากรอกชื่อผู้ดำเนินการ', false); return; }
+  if (!fromW || !toW){ showResult('กรุณาเลือกโกดังทั้งสองฝั่ง', false); return; }
+  if (fromW === toW) { showResult('โกดังต้นทางและปลายทางต้องต่างกัน', false); return; }
+  const allItems = []; const incompleteItems = [];
+  document.querySelectorAll('#rows-t .item-line').forEach(lineEl => {
+    const key = lineEl.id.replace('tline-', '');
+    if (!key || !document.getElementById(`tcode-${key}`)) return;
+    const code   = document.getElementById(`tcode-${key}`)?.value.trim() || '';
+    const qty    = Number(document.getElementById(`tqty-${key}`)?.value || 0);
+    const factor = Number(document.getElementById(`tfactor-${key}`)?.value || 1);
+    const info   = transferItemData[key];
+    if (!code && !qty) return;
+    if (!code || !qty) { incompleteItems.push(key); return; }
+    const tfloorVal  = document.getElementById(`tfloor-${key}`)?.value.trim() || info?.floor || '';
+    const tunitVal   = info?.unit || document.getElementById(`tunit-${key}`)?.textContent || '';
+    const tremarkVal = document.getElementById(`tremark-${key}`)?.value.trim() || '';
+    allItems.push({ code, fromWarehouse: fromW, toWarehouse: toW, qty, factor,
+      name: info?.name||code, unit: tunitVal, floor: tfloorVal, remark: tremarkVal });
+  });
+  if (incompleteItems.length > 0) { showResult('กรุณากรอกรหัสสินค้าและจำนวนให้ครบ', false); return; }
+  if (!allItems.length) { showResult('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ', false); return; }
+  currentDocType = 'ย้ายโกดัง';
+  // [FIX #2] เก็บ op/note ไว้ใน state
+  currentDocOp   = op;
+  currentDocNote = note;
+  buildTransferHTML(allItems, fromW, toW, op, note, false, '');
+}
+
+// ════════════════════════════════════════════════════
+//  BUILD DOCUMENT HTML (เบิก / รับ)
+// ════════════════════════════════════════════════════
+// [FIX #6] เพิ่ม random suffix กัน docNo ซ้ำ
+function _genDocNo(prefix) {
+  const now = new Date(), pad = n => String(n).padStart(2,'0');
+  const rand = String(Math.floor(Math.random() * 900) + 100); // 3 หลัก 100-999
+  return `${prefix}-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}-${rand}`;
+}
+function _dtLocal(dt) {
+  const d = dt ? new Date(dt) : new Date(), pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, existingDt) {
+  const isW = type === 'เบิก';
+  docNo = existingDocNo || _genDocNo(isW ? 'DOC' : 'RCV');
+  const dtVal = _dtLocal(existingDt);
+
+  // [FIX #2] อัปเดต state
+  currentDocOp   = op;
+  currentDocNote = note;
+
+  const updatedItems = allItems.map((item, idx) => ({ ...item, idx }));
+
+  const grouped = {};
+  updatedItems.forEach(item => {
+    if (!grouped[item.warehouse]) grouped[item.warehouse] = [];
+    grouped[item.warehouse].push(item);
+  });
+  let rowNum = 1;
+  const tableRows = Object.entries(grouped).map(([wh, items]) => {
+    const hdr = `<tr><td colspan="9" style="background:#1a56db !important;color:#fff;font-weight:800;font-size:15px;padding:10px 13px;letter-spacing:0.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">📦 โกดัง: ${wh}</td></tr>`;
+    return hdr + items.map(item => {
+      const factor   = Number(item.factor) || 1;
+      const pieces   = item.qty * factor;
+      return `<tr id="drow-${item.idx}">
+        <td style="text-align:center">${rowNum++}</td>
+        <td style="font-size:11px">${item.code}</td>
+        <td>${item.name}</td>
+        <td style="text-align:center">
+          <input type="number" min="1" value="${item.qty}" id="dqty-${item.idx}"
+            data-code="${item.code}" data-warehouse="${item.warehouse}" data-name="${item.name}"
+            data-unit="${item.unit}" data-floor="${item.floor}" data-factor="${factor}"
+            data-remark="${(item.remark||'').replace(/"/g,'&quot;')}"
+            ${isApproved?'readonly':''}>
+        </td>
+        <td style="text-align:center">${item.unit}</td>
+        <td style="text-align:center">
+          <b>${pieces}</b><small style="color:#6b7280;font-size:9px"> ชิ้น</small>
+        </td>
+        <td style="text-align:center">${item.floor}</td>
+        <td>
+          <input type="text" id="dremark-${item.idx}" value="${(item.remark||'').replace(/"/g,'&quot;')}"
+            placeholder="—" ${isApproved?'readonly':''}
+            style="width:100%;font-size:10px;padding:3px 5px;border:1px solid #d1d5db;border-radius:4px;margin:0">
+        </td>
+        <td style="text-align:center">${isApproved?'':(`<button class="btn-del-row" onclick="deleteDocRow(${item.idx})">🗑</button>`)}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  const title = isW ? 'ใบเบิกสินค้า' : 'ใบรับสินค้าเข้าคลัง';
+  const sigLabel = isW ? 'ผู้เบิก' : 'ผู้รับของ';
+  const appLabel = isW ? 'ผู้อนุมัติ' : 'ผู้ตรวจรับ';
+  const statusHtml = isApproved
+    ? '<span class="status-badge badge-approved" id="doc-status">✅ อนุมัติแล้ว</span>'
+    : '<span class="status-badge badge-pending"  id="doc-status">⏳ รอการอนุมัติ</span>';
+
+  document.getElementById('doc-area').innerHTML = `
+    <div class="doc-header"><div class="doc-title">${title}</div><div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div></div>
+    <div class="doc-meta">
+      <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
+      <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
+        <input type="datetime-local" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''}></div>
+      <div class="doc-meta-item"><span class="doc-meta-label">${isW?'ผู้เบิก':'ผู้รับของ'}:</span>
+        ${isApproved ? op : `<input id="doc-op" value="${op}" style="font-size:12px;padding:3px 6px;margin:0;width:auto;border:1px solid #93c5fd;border-radius:4px">`}
+      </div>
+      <div class="doc-meta-item"><span class="doc-meta-label">หมายเหตุ:</span>
+        ${isApproved ? (note||'-') : `<input id="doc-note" value="${note||''}" placeholder="—" style="font-size:12px;padding:3px 6px;margin:0;width:auto;border:1px solid #93c5fd;border-radius:4px">`}
+      </div>
+      <div class="doc-meta-item"><span class="doc-meta-label">ผู้จัดทำ:</span> ${currentUser.displayName}</div>
+      <div class="doc-meta-item"><span class="doc-meta-label">สถานะ:</span> ${statusHtml}</div>
+    </div>
+    <table class="edit-table"><thead><tr>
+      <th style="width:22px;text-align:center">ที่</th>
+      <th style="width:95px">รหัสสินค้า</th>
+      <th>ชื่อสินค้า</th><th style="width:65px;text-align:center">จำนวน</th>
+      <th style="width:32px;text-align:center">หน่วย</th>
+      <th style="width:55px;text-align:center">จำนวนชิ้น</th>
+      <th style="width:44px;text-align:center">ชั้น/ห้อง</th>
+      <th style="width:85px">หมายเหตุรายการ</th>
+      <th style="width:24px"></th>
+    </tr></thead><tbody id="doc-tbody">${tableRows}</tbody></table>
+    ${!isApproved ? `
+    <div id="doc-add-area" style="margin-bottom:14px">
+      <button onclick="toggleDocAddForm()" style="width:100%;padding:8px;border:1.5px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1a56db;font-size:12px;font-weight:700;cursor:pointer">
+        + เพิ่มรายการสินค้า
+      </button>
+      <div id="doc-add-form" class="hidden" style="margin-top:8px;padding:10px;border:1.5px solid #93c5fd;border-radius:8px;background:#f0f7ff">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <div>
+            <span class="field-label">รหัสสินค้า</span>
+            <input id="doc-add-code" placeholder="รหัส / ชื่อ / Barcode" oninput="lookupDocNewItem()" style="font-size:12px;padding:6px 8px;margin:0">
+          </div>
+          <div>
+            <span class="field-label">ชื่อสินค้า</span>
+            <input id="doc-add-name" readonly class="name-input empty" placeholder="— อัตโนมัติ —" style="font-size:12px;padding:6px 8px;margin:0">
+          </div>
+        </div>
+        <div id="doc-add-picker" class="hidden" style="margin-bottom:6px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+          <div><span class="field-label">โกดัง</span>
+            <select id="doc-add-wh" style="font-size:11px;padding:5px;margin:0">${WH_LIST.map(w=>'<option>'+w+'</option>').join('')}</select></div>
+          <div><span class="field-label">จำนวน</span>
+            <input id="doc-add-qty" type="number" min="1" placeholder="0" style="font-size:12px;padding:6px;margin:0;text-align:center"></div>
+          <div><span class="field-label">ชั้น/ห้อง</span>
+            <input id="doc-add-floor" placeholder="—" style="font-size:12px;padding:6px;margin:0"></div>
+          <div><span class="field-label">หมายเหตุ</span>
+            <input id="doc-add-remark" placeholder="—" style="font-size:12px;padding:6px;margin:0"></div>
+        </div>
+        <button onclick="confirmAddDocItem()" style="width:100%;padding:7px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✔ เพิ่มรายการนี้</button>
+      </div>
+    </div>` : ''}
+    <div class="doc-sign">
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">${sigLabel}</div></div>
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้เช็คสินค้า</div></div>
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้ตัดสต็อกสินค้า</div></div>
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">${appLabel}</div></div>
+    </div>
+    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${docNo}</div>`;
+
+  document.getElementById('modal-title').textContent = title + ' — ' + docNo;
+  document.getElementById('btn-save').classList.toggle('hidden', isApproved);
+  document.getElementById('btn-approve-t').classList.add('hidden');
+
+  const role    = currentUser?.role || '';
+  const permsArr = (currentUser?.permissions || '').split(',').map(p => p.trim());
+  const canApprove = !isApproved && (role === 'admin' || permsArr.includes('approve'));
+  document.getElementById('btn-approve-w').classList.toggle('hidden', !isW || !canApprove);
+  document.getElementById('btn-approve-r').classList.toggle('hidden',  isW || !canApprove);
+  document.getElementById('btn-approve-w').disabled = false;
+  document.getElementById('btn-approve-r').disabled = false;
+  document.getElementById('btn-approve-w').textContent = '✔ อนุมัติ';
+  document.getElementById('btn-approve-r').textContent = '✔ อนุมัติ';
+  document.getElementById('preview-modal').classList.add('show');
+}
+
+function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingDocNo, existingDt) {
+  docNo = existingDocNo || _genDocNo('TRF');
+  const dtVal = _dtLocal(existingDt);
+
+  // [FIX #2] อัปเดต state
+  currentDocOp   = op;
+  currentDocNote = note;
+
+  const statusHtml = isApproved
+    ? '<span class="status-badge badge-approved" id="doc-status">✅ อนุมัติแล้ว</span>'
+    : '<span class="status-badge badge-pending"  id="doc-status">⏳ รอการอนุมัติ</span>';
+  const rows = allItems.map((item, idx) => {
+    const actual = item.qty * (item.factor||1);
+    return `<tr id="trow-${idx}">
+      <td style="text-align:center">${idx+1}</td><td style="font-size:10px">${item.code}</td><td>${item.name}</td>
+      <td style="text-align:center">
+        <input type="number" min="1" value="${item.qty}" id="tdqty-${idx}"
+          data-code="${item.code}" data-from="${item.fromWarehouse||fromW}" data-to="${item.toWarehouse||toW}"
+          data-name="${item.name}" data-unit="${item.unit}" data-floor="${item.floor}" data-factor="${item.factor||1}"
+          ${isApproved?'readonly':''}>
+        ${(item.factor||1)>1?`<small style="font-size:9px;color:#6b7280">×${item.factor}=${actual}</small>`:''}
+      </td>
+      <td style="text-align:center">${item.unit}</td>
+      <td>
+        <input type="text" id="tremark-doc-${idx}" value="${(item.remark||'').replace(/"/g,'&quot;')}"
+          placeholder="—" ${isApproved?'readonly':''}
+          style="width:100%;font-size:10px;padding:3px 5px;border:1px solid #d1d5db;border-radius:4px;margin:0">
+      </td>
+      <td style="text-align:center">${isApproved?'':(`<button class="btn-del-row" onclick="document.getElementById('trow-${idx}').remove()">🗑</button>`)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('doc-area').innerHTML = `
+    <div class="doc-header"><div class="doc-title">ใบย้ายสินค้าระหว่างโกดัง</div><div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div></div>
+    <div class="doc-meta">
+      <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
+      <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
+        <input type="datetime-local" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''}></div>
+      <div class="doc-meta-item"><span class="doc-meta-label">จากโกดัง:</span> <strong style="color:#dc2626">${fromW}</strong></div>
+      <div class="doc-meta-item"><span class="doc-meta-label">ไปโกดัง:</span> <strong style="color:#16a34a">${toW}</strong></div>
+      <div class="doc-meta-item"><span class="doc-meta-label">ผู้ดำเนินการ:</span>
+        ${isApproved ? op : `<input id="doc-op" value="${op}" style="font-size:12px;padding:3px 6px;margin:0;width:auto;border:1px solid #93c5fd;border-radius:4px">`}
+      </div>
+      <div class="doc-meta-item"><span class="doc-meta-label">หมายเหตุ:</span>
+        ${isApproved ? (note||'-') : `<input id="doc-note" value="${note||''}" placeholder="—" style="font-size:12px;padding:3px 6px;margin:0;width:auto;border:1px solid #93c5fd;border-radius:4px">`}
+      </div>
+      <div class="doc-meta-item"><span class="doc-meta-label">ผู้จัดทำ:</span> ${currentUser.displayName}</div>
+      <div class="doc-meta-item"><span class="doc-meta-label">สถานะ:</span> ${statusHtml}</div>
+    </div>
+    <table class="edit-table"><thead><tr>
+      <th style="width:26px;text-align:center">ที่</th><th style="width:100px">รหัสสินค้า</th>
+      <th>ชื่อสินค้า</th><th style="width:75px;text-align:center">จำนวน</th>
+      <th style="width:36px;text-align:center">หน่วย</th>
+      <th style="width:90px">หมายเหตุรายการ</th>
+      <th style="width:28px"></th>
+    </tr></thead><tbody id="doc-tbody">${rows}</tbody></table>
+    ${!isApproved ? `
+    <div id="doc-add-area" style="margin-bottom:14px">
+      <button onclick="toggleDocAddForm()" style="width:100%;padding:8px;border:1.5px dashed #c4b5fd;border-radius:8px;background:#f5f3ff;color:#7c3aed;font-size:12px;font-weight:700;cursor:pointer">
+        + เพิ่มรายการสินค้า
+      </button>
+      <div id="doc-add-form" class="hidden" style="margin-top:8px;padding:10px;border:1.5px solid #c4b5fd;border-radius:8px;background:#f5f3ff">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <div>
+            <span class="field-label">รหัสสินค้า</span>
+            <input id="doc-add-code" placeholder="รหัส / ชื่อ / Barcode" oninput="lookupDocNewItem()" style="font-size:12px;padding:6px 8px;margin:0">
+          </div>
+          <div>
+            <span class="field-label">ชื่อสินค้า</span>
+            <input id="doc-add-name" readonly class="name-input empty" placeholder="— อัตโนมัติ —" style="font-size:12px;padding:6px 8px;margin:0">
+          </div>
+        </div>
+        <div id="doc-add-picker" class="hidden" style="margin-bottom:6px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+          <div><span class="field-label">จำนวน</span>
+            <input id="doc-add-qty" type="number" min="1" placeholder="0" style="font-size:12px;padding:6px;margin:0;text-align:center"></div>
+          <div><span class="field-label">ชั้น/ห้อง</span>
+            <input id="doc-add-floor" placeholder="—" style="font-size:12px;padding:6px;margin:0"></div>
+          <div><span class="field-label">หมายเหตุ</span>
+            <input id="doc-add-remark" placeholder="—" style="font-size:12px;padding:6px;margin:0"></div>
+        </div>
+        <button onclick="confirmAddDocItem()" style="width:100%;padding:7px;background:#7c3aed;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✔ เพิ่มรายการนี้</button>
+      </div>
+    </div>` : ''}
+    <div class="doc-sign">
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้โอน</div></div>
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้รับ</div></div>
+    </div>
+    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${docNo}</div>`;
+
+  document.getElementById('modal-title').textContent = 'ใบย้ายสินค้า — ' + docNo;
+  document.getElementById('btn-save').classList.toggle('hidden', isApproved);
+  document.getElementById('btn-approve-w').classList.add('hidden');
+  document.getElementById('btn-approve-r').classList.add('hidden');
+
+  const roleT    = currentUser?.role || '';
+  const permsArrT = (currentUser?.permissions || '').split(',').map(p => p.trim());
+  const canApproveT = !isApproved && (roleT === 'admin' || permsArrT.includes('approve'));
+  const btnT = document.getElementById('btn-approve-t');
+  btnT.classList.toggle('hidden', !canApproveT);
+  btnT.disabled = false; btnT.textContent = '✔ อนุมัติ';
+  document.getElementById('preview-modal').classList.add('show');
+}
+
+// ════════════════════════════════════════════════════
+//  SAVE DRAFT
+// ════════════════════════════════════════════════════
+// [FIX #2] ใช้ currentDocOp จาก state แทนการ parse DOM
+function saveDraft() {
+  const inputs = document.querySelectorAll('#doc-tbody input[type=number]');
+  const tdInps = document.querySelectorAll('#doc-tbody input[type=number][data-from]');
+  const isTransfer = tdInps.length > 0;
+  const items = [];
+  if (isTransfer) {
+    tdInps.forEach(inp => {
+      items.push({ code: inp.dataset.code, fromWarehouse: inp.dataset.from,
+        toWarehouse: inp.dataset.to, qty: Number(inp.value),
+        factor: Number(inp.dataset.factor||1), name: inp.dataset.name,
+        unit: inp.dataset.unit, floor: inp.dataset.floor });
+    });
+  } else {
+    inputs.forEach(inp => {
+      const idx = inp.id.replace('dqty-','');
+      const remark = document.getElementById(`dremark-${idx}`)?.value.trim() || inp.dataset.remark || '';
+      items.push({ code: inp.dataset.code, warehouse: inp.dataset.warehouse,
+        qty: Number(inp.value), factor: Number(inp.dataset.factor||1),
+        name: inp.dataset.name, unit: inp.dataset.unit, floor: inp.dataset.floor, remark });
+    });
+  }
+  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  // อ่าน op/note จากช่อง input ที่แก้ไขได้ (ถ้ามี)
+  const editOp   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
+  const editNote = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
+  currentDocOp   = editOp;
+  currentDocNote = editNote;
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+  callAPI('saveDraft', { docNo, type: currentDocType, items, op: editOp, note: editNote, dateStr })
+    .then(r => {
+      btn.disabled = false; btn.textContent = '💾 บันทึก';
+      if (r.success) {
+        showResult(`💾 บันทึกเอกสาร ${docNo} แล้ว`, true);
+      } else {
+        alert('บันทึกไม่สำเร็จ');
+      }
+    })
+    .catch(e => { btn.disabled = false; btn.textContent = '💾 บันทึก'; alert('❌ ' + e.message); });
+}
+
+// ════════════════════════════════════════════════════
+//  LOAD & RENDER DOCS
+// ════════════════════════════════════════════════════
+function loadDocs() {
+  document.getElementById('doc-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getDrafts')
+    .then(res => { allDocs = res || []; renderDocList(); })
+    .catch(e => { document.getElementById('doc-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ โหลดไม่ได้</p>'; });
+}
+
+function setDocFilter(f, btn) {
+  docFilter = f;
+  document.querySelectorAll('.doc-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDocList();
+}
+
+function renderDocList() {
+  const q   = (document.getElementById('doc-search')?.value || '').trim().toUpperCase();
+  const el  = document.getElementById('doc-list');
+  let docs  = allDocs.filter(d => {
+    if (docFilter === 'all')        return d.status !== 'อนุมัติแล้ว';
+    if (docFilter === 'อนุมัติแล้ว') return d.status === 'อนุมัติแล้ว';
+    if (docFilter === 'รอการอนุมัติ') return d.status === 'รอการอนุมัติ';
+    return d.type === docFilter;
+  });
+  if (q) docs = docs.filter(d => d.docNo.toUpperCase().includes(q) || d.operator.toUpperCase().includes(q));
+  if (!docs.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่มีเอกสาร</p>'; return; }
+
+  const typeIcon = { 'เบิก':'🔻', 'รับเข้า':'🔺', 'ย้ายโกดัง':'🔄' };
+  el.innerHTML = docs.map(d => {
+    const isPending = d.status === 'รอการอนุมัติ';
+    const cls       = isPending ? 'pending' : 'approved';
+    const sbCls     = isPending ? 'pending' : 'approved';
+    const dt        = d.datetime ? new Date(d.datetime).toLocaleString('th-TH') : d.createdAt || '';
+    return `<div class="doc-card ${cls}" onclick="openDraftDoc('${d.docNo}')">
+      <div class="doc-card-header">
+        <span class="doc-card-no">${typeIcon[d.type]||''} ${d.docNo}</span>
+        <span class="doc-status-badge ${sbCls}">${isPending?'⏳ รอ':'✅ อนุมัติ'}</span>
+        ${isPending && (currentUser.role==='admin'||currentUser.role==='stock') ?
+          `<button class="btn-delete-doc" onclick="event.stopPropagation();deleteDraftDoc('${d.docNo}')">🗑</button>` : ''}
+      </div>
+      <div class="doc-card-meta">${d.operator} · ${dt}${d.note?' · '+d.note:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function openDraftDoc(dn) {
+  callAPI('getDraftDetail', { docNo: dn })
+    .then(draft => {
+      if (!draft) { alert('ไม่พบเอกสาร'); return; }
+      currentDocType = draft.type;
+      docNo = draft.docNo;
+      // [FIX #2] เก็บ op/note จาก draft
+      currentDocOp   = draft.operator;
+      currentDocNote = draft.note;
+      const isApproved = draft.status === 'อนุมัติแล้ว';
+
+      if (draft.type === 'ย้ายโกดัง') {
+        // [FIX #5] ดึง fromWarehouse/toWarehouse จาก meta ก่อน fallback ไป items
+        const fromW = draft.fromWarehouse || (draft.items[0]?.fromWarehouse || '');
+        const toW   = draft.toWarehouse   || (draft.items[0]?.toWarehouse   || '');
+        buildTransferHTML(draft.items, fromW, toW, draft.operator, draft.note, isApproved, draft.docNo, draft.datetime);
+      } else {
+        buildDocHTML(draft.type, draft.items, draft.operator, draft.note, isApproved, draft.docNo, draft.datetime);
+      }
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+function deleteDraftDoc(dn) {
+  if (!confirm('ลบเอกสาร ' + dn + '?')) return;
+  callAPI('deleteDraft', { docNo: dn })
+    .then(r => { if (r.success) { showResult('ลบเอกสารแล้ว', true); loadDocs(); } else alert(r.error); })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  DELETE DOC ROW
+// ════════════════════════════════════════════════════
+function deleteDocRow(idx) {
+  document.getElementById(`drow-${idx}`)?.remove();
+  let n = 1;
+  document.querySelectorAll('#doc-tbody tr[id^="drow-"]').forEach(tr => { tr.querySelector('td:first-child').textContent = n++; });
+}
+
+// ════════════════════════════════════════════════════
+//  APPROVE
+// ════════════════════════════════════════════════════
+function _collectDocItems() {
+  const inputs = Array.from(document.querySelectorAll('#doc-tbody input[type=number]'));
+  const items = []; let hasErr = false;
+  inputs.forEach(inp => {
+    const qty = Number(inp.value);
+    if (!qty||qty<1) { hasErr=true; return; }
+    const idx = inp.id.replace('dqty-','');
+    const remark = document.getElementById(`dremark-${idx}`)?.value.trim() || inp.dataset.remark || '';
+    items.push({ code:inp.dataset.code, warehouse:inp.dataset.warehouse,
+      fromWarehouse:inp.dataset.from, toWarehouse:inp.dataset.to,
+      qty, factor: Number(inp.dataset.factor||1),
+      name:inp.dataset.name, unit:inp.dataset.unit, floor:inp.dataset.floor, remark });
+  });
+  return { items, hasErr };
+}
+
+function approve(type) {
+  const { items, hasErr } = _collectDocItems();
+  if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
+  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  // อ่าน op/note จากช่อง input ที่แก้ไขได้
+  const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
+  const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
+  _setApproveLoading(true);
+  callAPI('submitBatch', { type, items, op, note, dateStr })
+    .then(r => {
+      if (r.success) {
+        _markApproved();
+        markDraftApproved();
+        showResult(`✅ อนุมัติสำเร็จ ${r.results.length} รายการ — ${docNo}`, true);
+        loadCache(); loadDocs();
+      } else { alert('ผิดพลาด:\n'+r.errors.join('\n')); _setApproveLoading(false); }
+    })
+    .catch(e => { alert('❌ '+e.message); _setApproveLoading(false); });
+}
+
+function approveTransfer() {
+  const inputs = Array.from(document.querySelectorAll('#doc-tbody input[type=number]'));
+  const items = []; let hasErr = false;
+  inputs.forEach(inp => {
+    const qty = Number(inp.value);
+    if (!qty||qty<1) { hasErr=true; return; }
+    const tridx = inp.id.replace('tdqty-','');
+    const tremark2 = document.getElementById(`tremark-doc-${tridx}`)?.value.trim() || '';
+    items.push({ code:inp.dataset.code, fromWarehouse:inp.dataset.from,
+      toWarehouse:inp.dataset.to, qty, factor:Number(inp.dataset.factor||1),
+      name:inp.dataset.name, unit:inp.dataset.unit, floor:inp.dataset.floor, remark:tremark2 });
+  });
+  if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
+  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  // อ่าน op/note จากช่อง input ที่แก้ไขได้
+  const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
+  const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
+  _setApproveLoading(true);
+  callAPI('transferBatch', { items, op, note, dateStr, transferDocNo: docNo })
+    .then(r => {
+      if (r.success) {
+        _markApproved(); markDraftApproved();
+        showResult(`✅ ย้ายสำเร็จ ${r.results.length} รายการ — ${docNo}`, true);
+        loadCache(); loadDocs();
+      } else { alert('ผิดพลาด:\n'+r.errors.join('\n')); _setApproveLoading(false); }
+    })
+    .catch(e => { alert('❌ '+e.message); _setApproveLoading(false); });
+}
+
+function _setApproveLoading(on) {
+  ['btn-approve-w','btn-approve-r','btn-approve-t'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.classList.contains('hidden')) {
+      el.disabled = on;
+      if (on) el.textContent = '⏳ กำลังบันทึก...';
+    }
+  });
+}
+
+function _markApproved() {
+  document.getElementById('doc-status').textContent = '✅ อนุมัติแล้ว';
+  document.getElementById('doc-status').className   = 'status-badge badge-approved';
+  ['btn-approve-w','btn-approve-r','btn-approve-t','btn-save'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.querySelectorAll('.btn-del-row').forEach(b => b.style.display='none');
+  document.querySelectorAll('#doc-tbody input').forEach(inp => inp.readOnly = true);
+}
+
+function markDraftApproved() {
+  callAPI('markDraftApproved', { docNo, approvedBy: currentUser.displayName }).catch(() => {});
+}
+
+// ════════════════════════════════════════════════════
+//  PRODUCTS
+// ════════════════════════════════════════════════════
+let allProducts = [];
+
+function loadProducts() {
+  document.getElementById('product-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getProductsList')
+    .then(res => { allProducts = (res && res.products) || []; renderProductList(); })
+    .catch(e => { document.getElementById('product-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>'; });
+}
+
+function renderProductList() {
+  const q   = (document.getElementById('prod-search')?.value || '').trim().toUpperCase();
+  const el  = document.getElementById('product-list');
+  const canSeeDetail = _canSeeWarehouseDetail();
+
+  let prods = q
+    ? allProducts.filter(p => p.code.toUpperCase().includes(q) || p.name.toUpperCase().includes(q) || p.warehouse.toUpperCase().includes(q) || (p.barcode||'').toUpperCase().includes(q))
+    : allProducts;
+
+  if (!prods.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบสินค้า</p>'; return; }
+
+  if (canSeeDetail) {
+    // === แสดงรายละเอียดแยกตามโกดัง (เหมือนเดิม) ===
+    el.innerHTML = prods.map(p => {
+      const cls = p.stock <= 0 ? 'zero' : p.stock <= 10 ? 'low' : 'ok';
+      return `<div class="prod-row">
+        <div class="prod-row-info">
+          <div class="prod-row-code">${p.code}${p.barcode?' <span style="color:#6b7280;font-weight:400">🔖'+p.barcode+'</span>':''}</div>
+          <div class="prod-row-name">${p.name}</div>
+          <div class="prod-row-sub">📍 ${p.warehouse} ${p.floor} · ${p.unit}${p.unitFactor>1?' · ×'+p.unitFactor:''}</div>
+        </div>
+        <span class="prod-stock ${cls}">${p.stock} ${p.unit}</span>
+        <button class="btn-edit-prod" onclick="showProductForm(${JSON.stringify(p).split('"').join('&quot;')})">✏️</button>
+        <button class="btn-delete-doc" onclick="deleteProduct('${p.code}','${p.warehouse}')">🗑</button>
+      </div>`;
+    }).join('');
+  } else {
+    // === แสดงแบบรวม — ไม่เปิดเผยว่าอยู่โกดังไหน ===
+    const agg = _aggregateByCode(prods);
+    el.innerHTML = agg.map(p => {
+      const cls = p.stock <= 0 ? 'zero' : p.stock <= 10 ? 'low' : 'ok';
+      const whLabel = p._whCount > 1 ? ` <span style="color:#6b7280;font-size:10px">(${p._whCount} โกดัง)</span>` : '';
+      return `<div class="prod-row">
+        <div class="prod-row-info">
+          <div class="prod-row-code">${p.code}${p.barcode?' <span style="color:#6b7280;font-weight:400">🔖'+p.barcode+'</span>':''}</div>
+          <div class="prod-row-name">${p.name}</div>
+          <div class="prod-row-sub">${p.unit}${p.unitFactor>1?' · ×'+p.unitFactor:''}${whLabel}</div>
+        </div>
+        <span class="prod-stock ${cls}">${p.stock} ${p.unit}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function showProductForm(product, prefill) {
+  const isNew  = !product;
+  const p      = product || prefill || {};
+  const whOpts = WH_LIST.map(w => `<option ${p.warehouse===w?'selected':''}>${w}</option>`).join('');
+  const area   = document.getElementById('product-form-area');
+  area.innerHTML = `
+    <div class="prod-form ${isNew?'':'edit'}">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:${isNew?'#166534':'#1e40af'}">
+        ${isNew?'➕ เพิ่มสินค้าใหม่':'✏️ แก้ไข: '+p.code}
+      </div>
+      <div class="prod-form-grid">
+        <div><label>รหัสสินค้า *</label>
+          <input id="pf-code" value="${p.code||''}" placeholder="MTRK-ARW-00001" ${isNew?'':'readonly style="background:#f3f4f6;color:#6b7280"'}></div>
+        <div><label>บาร์โค้ด</label>
+          <input id="pf-barcode" value="${p.barcode||''}" placeholder="—"></div>
+        <div style="grid-column:1/-1"><label>ชื่อสินค้า *</label>
+          <input id="pf-name" value="${p.name||''}" placeholder="ชื่อสินค้า"></div>
+        <div><label>โกดัง *</label>
+          <select id="pf-wh" ${isNew?'':'disabled style="background:#f3f4f6;color:#6b7280"'}>
+            <option value="">-- เลือก --</option>${whOpts}
+          </select></div>
+        <div><label>ชั้น/ห้อง</label>
+          <input id="pf-floor" value="${p.floor||''}" placeholder="เช่น ชั้น 1"></div>
+        <div><label>หน่วย *</label>
+          <input id="pf-unit" value="${p.unit||''}" placeholder="เช่น เส้น, ขด, ชิ้น"></div>
+        <div><label>อัตรา</label>
+          <input id="pf-factor" type="number" min="1" value="${p.unitFactor||1}" style="text-align:center"></div>
+        ${isNew?`
+        <div><label>สต็อกเริ่มต้น</label>
+          <input id="pf-stock" type="number" min="0" value="${p.stock||0}" style="text-align:center"></div>
+        <div><label>สต็อกขั้นต่ำ</label>
+          <input id="pf-minstk" type="number" min="0" value="${p.minStock||0}" style="text-align:center"></div>
+        `:''}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-save-prod ${isNew?'':'edit'}" onclick="saveProduct(${isNew})">${isNew?'💾 บันทึกสินค้าใหม่':'💾 บันทึกการแก้ไข'}</button>
+        <button class="btn-cancel-prod" onclick="document.getElementById('product-form-area').innerHTML=''">ยกเลิก</button>
+      </div>
+    </div>`;
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function saveProduct(isNew) {
+  const code      = document.getElementById('pf-code')?.value.trim();
+  const name      = document.getElementById('pf-name')?.value.trim();
+  const warehouse = document.getElementById('pf-wh')?.value;
+  const floor     = document.getElementById('pf-floor')?.value.trim();
+  const unit      = document.getElementById('pf-unit')?.value.trim();
+  const barcode   = document.getElementById('pf-barcode')?.value.trim();
+  const unitFactor= Number(document.getElementById('pf-factor')?.value || 1);
+  const stock     = Number(document.getElementById('pf-stock')?.value  || 0);
+  const minStock  = Number(document.getElementById('pf-minstk')?.value || 0);
+
+  if (!code)      { alert('กรุณากรอกรหัสสินค้า');  return; }
+  if (!name)      { alert('กรุณากรอกชื่อสินค้า');   return; }
+  if (!warehouse) { alert('กรุณาเลือกโกดัง');       return; }
+  if (!unit)      { alert('กรุณากรอกหน่วย');        return; }
+
+  // กัน double click — disable ปุ่มระหว่างบันทึก
+  const saveBtn = document.querySelector('.btn-save-prod');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ กำลังบันทึก...'; }
+
+  callAPI(isNew ? 'addProduct' : 'updateProduct', { product: { code, name, warehouse, floor, unit, barcode, unitFactor, stock, minStock } })
+    .then(r => {
+      if (r.success) {
+        document.getElementById('product-form-area').innerHTML = '';
+        showResult((isNew ? '✅ เพิ่มสินค้าใหม่' : '✅ แก้ไขสินค้า') + ' "' + code + '" สำเร็จ', true);
+        loadProducts();
+        loadCache();
+      } else {
+        alert(r.error);
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isNew ? '💾 บันทึกสินค้าใหม่' : '💾 บันทึกการแก้ไข'; }
+      }
+    })
+    .catch(e => {
+      alert('❌ ' + e.message);
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isNew ? '💾 บันทึกสินค้าใหม่' : '💾 บันทึกการแก้ไข'; }
+    });
+}
+
+function deleteProduct(code, warehouse) {
+  if (!confirm('ลบสินค้า "' + code + '" ในโกดัง "' + warehouse + '"?\nสต็อกและประวัติจะถูกลบออกจาก MASTER')) return;
+  callAPI('deleteProduct', { code, warehouse })
+    .then(r => {
+      if (r.success) { showResult('ลบสินค้า "' + code + '" แล้ว', true); loadProducts(); loadCache(); }
+      else alert(r.error);
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  REPORT
+// ════════════════════════════════════════════════════
+let rptData = [];
+
+function loadReport() {
+  const type    = document.getElementById('rpt-type')?.value || 'ทั้งหมด';
+  const dateFrom = document.getElementById('rpt-from')?.value || '';
+  const dateTo   = document.getElementById('rpt-to')?.value   || '';
+
+  document.getElementById('rpt-tbody').innerHTML =
+    '<tr><td colspan="9" style="text-align:center;padding:20px;color:#6b7280">⏳ กำลังโหลด...</td></tr>';
+  document.getElementById('rpt-summary').innerHTML = '';
+
+  if (type === 'ย้ายโกดัง') {
+    callAPI('getTransferLog', { dateFrom, dateTo })
+      .then(res => {
+        rptData = (res.rows || []).map(r => ({ ...r, _isTransfer: true }));
+        renderReport();
+      })
+      .catch(e => {
+        document.getElementById('rpt-tbody').innerHTML =
+          `<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
+      });
+  } else {
+    callAPI('getLog', { filterType: type, dateFrom, dateTo })
+      .then(res => {
+        rptData = res.rows || [];
+        renderReport();
+      })
+      .catch(e => {
+        document.getElementById('rpt-tbody').innerHTML =
+          `<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
+      });
+  }
+}
+
+function renderReport() {
+  const q = (document.getElementById('rpt-search')?.value || '').trim().toUpperCase();
+  let rows = rptData;
+
+  if (q) {
+    rows = rows.filter(r => {
+      const hay = [r.code, r.name, r.warehouse||'', r.fromWh||'', r.toWh||'',
+                   r.operator, r.note, r.docNo||''].join(' ').toUpperCase();
+      return hay.includes(q);
+    });
+  }
+
+  const isTransferView = rows.length > 0 && rows[0]._isTransfer;
+
+  let sumW = 0, sumR = 0, sumT = 0;
+  rptData.forEach(r => {
+    if (r._isTransfer) sumT++;
+    else if (r.type === 'เบิก') sumW++;
+    else sumR++;
+  });
+
+  const summaryEl = document.getElementById('rpt-summary');
+  if (rptData.length > 0) {
+    summaryEl.innerHTML = `
+      ${sumW > 0 ? `<div class="rpt-summary-box" style="background:#fee2e2;color:#dc2626">🔻 เบิก<br>${sumW} รายการ</div>` : ''}
+      ${sumR > 0 ? `<div class="rpt-summary-box" style="background:#dcfce7;color:#16a34a">🔺 รับเข้า<br>${sumR} รายการ</div>` : ''}
+      ${sumT > 0 ? `<div class="rpt-summary-box" style="background:#ede9fe;color:#7c3aed">🔄 ย้าย<br>${sumT} รายการ</div>` : ''}
+      <div class="rpt-summary-box" style="background:#f3f4f6;color:#374151">รวม<br>${rptData.length} รายการ</div>`;
+  }
+
+  if (!rows.length) {
+    document.getElementById('rpt-tbody').innerHTML =
+      '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">ไม่พบข้อมูล</td></tr>';
+    document.getElementById('rpt-footer').textContent = '';
+    return;
+  }
+
+  const tbody = document.getElementById('rpt-tbody');
+  const rptCanSeeWh = _canSeeWarehouseDetail();
+  tbody.innerHTML = rows.map(r => {
+    if (r._isTransfer) {
+      const whCol = rptCanSeeWh
+        ? `<td style="padding:6px 8px;font-size:11px">${r.fromWh} → ${r.toWh}</td>`
+        : `<td style="padding:6px 8px;font-size:11px;color:#9ca3af">— ย้ายระหว่างโกดัง —</td>`;
+      return `<tr class="rpt-row-t">
+        <td style="padding:6px 8px;white-space:nowrap;color:#374151">${r.datetime}</td>
+        <td style="padding:6px 8px;text-align:center"><span class="rpt-badge rpt-badge-t">🔄 ย้าย</span></td>
+        <td style="padding:6px 8px;font-size:11px">${r.code}</td>
+        <td style="padding:6px 8px">${r.name}</td>
+        ${whCol}
+        <td style="padding:6px 8px;text-align:center"><span class="rpt-qty-t">${r.qty} ${r.unit}</span></td>
+        <td style="padding:6px 8px;text-align:center;color:#6b7280">—</td>
+        <td style="padding:6px 8px">${r.operator}</td>
+        <td style="padding:6px 8px;color:#6b7280;font-size:11px">${r.note||'—'}</td>
+      </tr>`;
+    }
+    const isW   = r.type === 'เบิก';
+    const rowCls = isW ? 'rpt-row-w' : 'rpt-row-r';
+    const badge  = isW ? '<span class="rpt-badge rpt-badge-w">🔻 เบิก</span>'
+                        : '<span class="rpt-badge rpt-badge-r">🔺 รับ</span>';
+    const qtyCls = isW ? 'rpt-qty-w' : 'rpt-qty-r';
+    const qtySign = isW ? '' : '+';
+    const whDisplay = rptCanSeeWh
+      ? `${r.warehouse}${r.floor?' · '+r.floor:''}`
+      : '<span style="color:#9ca3af">—</span>';
+    return `<tr class="${rowCls}">
+      <td style="padding:6px 8px;white-space:nowrap;color:#374151">${r.datetime}</td>
+      <td style="padding:6px 8px;text-align:center">${badge}</td>
+      <td style="padding:6px 8px;font-size:11px">${r.code}</td>
+      <td style="padding:6px 8px">${r.name}</td>
+      <td style="padding:6px 8px">${whDisplay}</td>
+      <td style="padding:6px 8px;text-align:center"><span class="${qtyCls}">${qtySign}${r.qty} ${r.unit}</span></td>
+      <td style="padding:6px 8px;text-align:center">${r.stockAfter} ${r.unit}</td>
+      <td style="padding:6px 8px">${r.operator}</td>
+      <td style="padding:6px 8px;color:#6b7280;font-size:11px">${r.note||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rpt-footer').textContent =
+    `แสดง ${rows.length} จาก ${rptData.length} รายการ`;
+}
+
+function clearReportFilter() {
+  document.getElementById('rpt-type').value  = 'ทั้งหมด';
+  document.getElementById('rpt-from').value  = '';
+  document.getElementById('rpt-to').value    = '';
+  document.getElementById('rpt-search').value = '';
+  rptData = [];
+  document.getElementById('rpt-tbody').innerHTML =
+    '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>';
+  document.getElementById('rpt-summary').innerHTML = '';
+  document.getElementById('rpt-footer').textContent = '';
+}
+
+// ════════════════════════════════════════════════════
+//  USERS
+// ════════════════════════════════════════════════════
+function loadUsers() {
+  document.getElementById('user-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getUsersList')
+    .then(res => renderUserList(res||[]))
+    .catch(() => { document.getElementById('user-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ โหลดไม่ได้ — รัน setupUsersSheet() ใน Apps Script ก่อน</p>'; });
+}
+
+function renderUserList(users) {
+  const roleLabel = { admin:'Admin', stock:'คลังสินค้า', sales:'ขาย' };
+  const tabIcon = { withdraw:'🔻',receive:'🔺',transfer:'🔄',search:'🔍',docs:'📋',products:'📦',scraps:'🔌',warehouse_detail:'🏭',approve:'✅' };
+  document.getElementById('user-list').innerHTML = users.map(u => {
+    const permBadges = u.role === 'admin'
+      ? '<span style="font-size:10px;color:#92400e;background:#fef3c7;padding:1px 6px;border-radius:4px">ทุกสิทธิ์</span>'
+      : (u.permissions||'').split(',').filter(Boolean).map(p =>
+          `<span style="font-size:10px;color:#374151;background:#f3f4f6;padding:1px 6px;border-radius:4px;margin-right:2px">${tabIcon[p.trim()]||''} ${p.trim()}</span>`
+        ).join('') || '<span style="font-size:10px;color:#dc2626">ไม่มีสิทธิ์</span>';
+    return `<div class="user-row">
+      <div class="user-row-info">
+        <div class="user-row-name">${u.displayName} <span class="role-badge ${u.role}">${roleLabel[u.role]||u.role}</span></div>
+        <div class="user-row-sub">@${u.username}</div>
+        <div style="margin-top:3px">${permBadges}</div>
+      </div>
+      <button class="btn-edit-user" onclick="showUserForm('${u.username}','${u.displayName}','${u.role}','${u.permissions||''}')">แก้ไข</button>
+      <button class="btn-delete-doc" onclick="deleteUser('${u.username}')">🗑</button>
+    </div>`;
+  }).join('') || '<p style="color:#9ca3af;font-size:13px">ยังไม่มีผู้ใช้</p>';
+}
+
+function showUserForm(username, displayName, role, permissions) {
+  const isNew    = !username;
+  const permList = (permissions || '').split(',').map(p => p.trim()).filter(Boolean);
+  const TAB_LABELS = {
+    withdraw:'🔻 เบิกของ', receive:'🔺 รับของเข้า', transfer:'🔄 ย้ายโกดัง',
+    search:'🔍 ค้นหา', docs:'📋 เอกสาร', products:'📦 สินค้า',
+    approve:'✅ อนุมัติเอกสาร',
+    scraps:'🔌 เศษสายไฟ/ริบบิ้น',
+    warehouse_detail:'🏭 ดูรายละเอียดโกดัง/ชั้น'
+  };
+  const permChecks = Object.entries(TAB_LABELS).map(([key, label]) =>
+    `<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;margin-bottom:5px;cursor:pointer">
+      <input type="checkbox" id="perm-${key}" value="${key}" ${permList.includes(key)?'checked':''} style="width:16px;height:16px;margin:0">
+      ${label}
+    </label>`
+  ).join('');
+
+  document.getElementById('user-form-area').innerHTML = `
+    <div class="user-form-card">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">${isNew?'➕ เพิ่มผู้ใช้ใหม่':'✏️ แก้ไข: @'+username}</div>
+      ${isNew?`<label>Username</label><input id="uf-user" placeholder="username">`:
+               `<input id="uf-user" value="${username}" readonly style="background:#f3f4f6;color:#6b7280">`}
+      <label>${isNew?'รหัสผ่าน':'รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)'}</label>
+      <input id="uf-pass" type="password" placeholder="รหัสผ่าน">
+      <label>ชื่อ-นามสกุล</label>
+      <input id="uf-name" value="${displayName||''}" placeholder="ชื่อ-นามสกุล">
+      <label>ตำแหน่ง (ใช้กำหนดสิทธิ์อนุมัติ)</label>
+      <select id="uf-role">
+        <option value="admin"  ${role==='admin' ?'selected':''}>Admin</option>
+        <option value="stock"  ${role==='stock' ?'selected':''}>คลังสินค้า</option>
+        <option value="sales"  ${role==='sales' ?'selected':''}>พนักงานขาย</option>
+      </select>
+      <label style="margin-top:4px">สิทธิ์เข้าใช้งาน <small style="color:#6b7280;font-weight:400">(Admin มีทุกสิทธิ์อัตโนมัติ)</small></label>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+        ${permChecks}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn-save-user" onclick="saveUser(${isNew})">💾 บันทึก</button>
+        <button class="btn-cancel-user" onclick="document.getElementById('user-form-area').innerHTML=''">ยกเลิก</button>
+      </div>
+    </div>`;
+}
+
+function saveUser(isNew) {
+  const username    = document.getElementById('uf-user').value.trim();
+  const password    = document.getElementById('uf-pass').value.trim();
+  const displayName = document.getElementById('uf-name').value.trim();
+  const role        = document.getElementById('uf-role').value;
+  if (!username)        { alert('กรุณากรอก username'); return; }
+  if (isNew&&!password) { alert('กรุณากรอกรหัสผ่าน'); return; }
+  if (!displayName)     { alert('กรุณากรอกชื่อ'); return; }
+  const permKeys = ['withdraw','receive','transfer','search','docs','products','scraps','approve','warehouse_detail'];
+  const perms = permKeys.filter(k => document.getElementById(`perm-${k}`)?.checked).join(',');
+  callAPI('saveUser', { username, password, displayName, role, isNew, permissions: perms })
+    .then(r => {
+      if (r.success) { document.getElementById('user-form-area').innerHTML = ''; loadUsers(); showResult('บันทึกผู้ใช้สำเร็จ', true); }
+      else alert(r.error);
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+function deleteUser(username) {
+  if (!confirm('ลบผู้ใช้ @' + username + '?')) return;
+  callAPI('deleteUser', { username })
+    .then(r => { if (r.success) { loadUsers(); showResult('ลบผู้ใช้แล้ว', true); } else alert(r.error); })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  SEARCH
+// ════════════════════════════════════════════════════
+function doSearch() {
+  const q = document.getElementById('search-q').value.trim();
+  const el = document.getElementById('search-results');
+  if (q.length < 2) { el.innerHTML = ''; return; }
+  if (!DB_READY) { el.innerHTML = '<p style="color:#6b7280;font-size:13px">⏳ กำลังโหลด...</p>'; return; }
+  const res = filterDB(q, '').slice(0, 50);
+  if (!res.length) { el.innerHTML = '<p style="color:#6b7280;font-size:13px;margin-top:8px">ไม่พบสินค้า</p>'; return; }
+
+  const canSeeDetail = _canSeeWarehouseDetail();
+
+  if (canSeeDetail) {
+    // === แสดงรายละเอียดแยกตามโกดัง (เหมือนเดิม) ===
+    el.innerHTML = res.slice(0, 30).map(i => {
+      const cls = i.stock<=0?'zero':i.stock<=10?'low':'ok';
+      return `<div class="search-item">
+        <div style="font-weight:700;font-size:13px">${i.name}</div>
+        <div style="font-size:11px;color:#6b7280">${i.code}${i.barcode?' · 🔖'+i.barcode:''}</div>
+        <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-top:2px">
+          📍 ${i.warehouse}${i.floor ? ' &nbsp;·&nbsp; ชั้น/ห้อง: ' + i.floor : ''}
+        </div>
+        <div>คงเหลือ: <span class="istock ${cls}">${i.stock} ${i.unit}</span>
+        ${i.unitFactor>1?`<small style="color:#6b7280"> · อัตรา ×${i.unitFactor}</small>`:''}</div>
+      </div>`;
+    }).join('');
+  } else {
+    // === แสดงแบบรวม — ไม่เปิดเผยว่าอยู่โกดังไหน ===
+    const agg = _aggregateByCode(res);
+    el.innerHTML = agg.slice(0, 30).map(i => {
+      const cls = i.stock<=0?'zero':i.stock<=10?'low':'ok';
+      const whLabel = i._whCount > 1 ? `<span style="font-size:10px;color:#6b7280;margin-left:4px">(${i._whCount} โกดัง)</span>` : '';
+      return `<div class="search-item">
+        <div style="font-weight:700;font-size:13px">${i.name}</div>
+        <div style="font-size:11px;color:#6b7280">${i.code}${i.barcode?' · 🔖'+i.barcode:''}</div>
+        <div>คงเหลือรวม: <span class="istock ${cls}">${i.stock} ${i.unit}</span>${whLabel}
+        ${i.unitFactor>1?`<small style="color:#6b7280"> · อัตรา ×${i.unitFactor}</small>`:''}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function closePreview() { document.getElementById('preview-modal').classList.remove('show'); }
+
+// ════════════════════════════════════════════════════
+//  SCRAPS — เศษสายไฟ / ไฟริบบิ้น
+// ════════════════════════════════════════════════════
+let allScraps = [];
+
+function _canCutScrap() {
+  if (!currentUser) return false;
+  if (currentUser.role === 'admin') return true;
+  const perms = (currentUser.permissions || '').split(',').map(p => p.trim());
+  return perms.includes('warehouse_detail');
+}
+
+function loadScraps() {
+  document.getElementById('scrap-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getScrapList')
+    .then(res => { allScraps = res || []; renderScrapList(); })
+    .catch(e => { document.getElementById('scrap-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>'; });
+}
+
+function renderScrapList() {
+  const q  = (document.getElementById('scrap-search')?.value || '').trim().toUpperCase();
+  const el = document.getElementById('scrap-list');
+  const canCut = _canCutScrap();
+  let items = allScraps;
+  if (q) {
+    items = items.filter(s => {
+      const hay = [s.code, s.name, s.unit, s.note].join(' ').toUpperCase();
+      return hay.includes(q);
+    });
+  }
+  if (!items.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบรายการ</p>'; return; }
+
+  el.innerHTML = items.map(s => {
+    const cls = s.currentStock <= 0 ? 'zero' : s.currentStock <= 10 ? 'low' : 'ok';
+    const escJson = JSON.stringify(s).replace(/"/g, '&quot;');
+    const cutBtn = canCut
+      ? `<button style="padding:4px 9px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:5px;font-size:11px;cursor:pointer" onclick="showCutScrapForm(${escJson})">✂️ ตัด</button>`
+      : '';
+    const editBtn = canCut
+      ? `<button class="btn-edit-prod" style="border-color:#fbbf24;color:#d97706;background:#fffbeb" onclick="showScrapForm(${escJson})">✏️</button>`
+      : '';
+    const delBtn = canCut
+      ? `<button class="btn-delete-doc" onclick="deleteScrap('${s.code}')">🗑</button>`
+      : '';
+    return `<div class="prod-row" style="border-left:3px solid #d97706">
+      <div class="prod-row-info">
+        <div class="prod-row-code" style="color:#92400e">${s.code}</div>
+        <div class="prod-row-name">${s.name}</div>
+        <div class="prod-row-sub">${s.note ? '📝 ' + s.note : ''}${s.updatedBy ? ' · 👤 ' + s.updatedBy : ''}</div>
+      </div>
+      <span class="prod-stock ${cls}">${s.currentStock} ${s.unit}</span>
+      ${cutBtn}${editBtn}${delBtn}
+    </div>`;
+  }).join('');
+}
+
+// ═══ เพิ่ม / แก้ไขข้อมูลสินค้า ═══
+function showScrapForm(item) {
+  const isNew = !item;
+  const s = item || {};
+  const area = document.getElementById('scrap-form-area');
+  area.innerHTML = `
+    <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#92400e">
+        ${isNew ? '➕ เพิ่มเศษสายใหม่' : '✏️ แก้ไขข้อมูล: ' + s.code}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:12px">รหัสสินค้า *</label>
+          <input id="sf-code" value="${s.code||''}" placeholder="เช่น THWX-BCC-00147" ${isNew?'':'readonly style="background:#f3f4f6;color:#6b7280"'}></div>
+        <div><label style="font-size:12px">ชื่อสินค้า *</label>
+          <input id="sf-name" value="${s.name||''}" placeholder="เช่น BCC THW 1x50 (ตัดเมตร) ดำ"></div>
+        <div><label style="font-size:12px">${isNew ? 'สต็อกเริ่มต้น *' : 'สต็อกเริ่มต้น'}</label>
+          <input id="sf-init" type="number" min="0" step="0.01" value="${s.initStock||0}" style="text-align:center" ${isNew?'':'readonly style="text-align:center;background:#f3f4f6;color:#6b7280"'}></div>
+        <div><label style="font-size:12px">หน่วย *</label>
+          <input id="sf-unit" value="${s.unit||''}" placeholder="เช่น เมตร"></div>
+        <div style="grid-column:1/-1"><label style="font-size:12px">หมายเหตุ</label>
+          <input id="sf-note" value="${s.note||''}" placeholder="รายละเอียดเพิ่มเติม เช่น สี, ขนาด, ที่มา"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="sf-save-btn" onclick="saveScrap(${isNew})" style="padding:9px 18px;background:#d97706;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${isNew?'💾 เพิ่มรายการ':'💾 บันทึก'}</button>
+        <button onclick="document.getElementById('scrap-form-area').innerHTML=''" style="padding:9px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function saveScrap(isNew) {
+  const code = document.getElementById('sf-code')?.value.trim();
+  const name = document.getElementById('sf-name')?.value.trim();
+  const unit = document.getElementById('sf-unit')?.value.trim();
+  const note = document.getElementById('sf-note')?.value.trim();
+  const initStock = Number(document.getElementById('sf-init')?.value || 0);
+
+  if (!code) { alert('กรุณากรอกรหัสสินค้า'); return; }
+  if (!name) { alert('กรุณากรอกชื่อสินค้า'); return; }
+  if (!unit) { alert('กรุณากรอกหน่วย'); return; }
+
+  const btn = document.getElementById('sf-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...'; }
+
+  const op = currentUser?.displayName || '';
+  const payload = isNew
+    ? { code, name, initStock, unit, note }
+    : { code, name, unit, note };
+
+  callAPI(isNew ? 'addScrap' : 'updateScrap', { item: payload, operator: op })
+    .then(r => {
+      if (r.success) {
+        document.getElementById('scrap-form-area').innerHTML = '';
+        showResult((isNew ? '✅ เพิ่มเศษสาย' : '✅ แก้ไขเศษสาย') + ' "' + code + '" สำเร็จ', true);
+        loadScraps();
+      } else {
+        alert(r.error);
+        if (btn) { btn.disabled = false; btn.textContent = isNew ? '💾 เพิ่มรายการ' : '💾 บันทึก'; }
+      }
+    })
+    .catch(e => { alert('❌ ' + e.message); if (btn) { btn.disabled = false; btn.textContent = isNew ? '💾 เพิ่มรายการ' : '💾 บันทึก'; } });
+}
+
+// ═══ ตัดสต็อก ═══
+function showCutScrapForm(item) {
+  const s = item || {};
+  const area = document.getElementById('scrap-form-area');
+  area.innerHTML = `
+    <div style="background:#fef3c7;border:2px solid #d97706;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#92400e">✂️ ตัดสต็อก</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <span class="field-label" style="color:#92400e">รหัสสินค้า</span>
+          <div style="font-weight:700;font-size:13px;color:#1e293b;padding:6px 0">${s.code}</div>
+        </div>
+        <div>
+          <span class="field-label" style="color:#92400e">ชื่อสินค้า</span>
+          <div style="font-size:13px;color:#374151;padding:6px 0">${s.name}</div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1.5px solid #fbbf24;border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+          <div>
+            <div style="font-size:10px;color:#6b7280;font-weight:600">สต็อกปัจจุบัน</div>
+            <div style="font-size:20px;font-weight:800;color:#1e40af" id="cut-current">${s.currentStock}</div>
+            <div style="font-size:11px;color:#6b7280">${s.unit}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#6b7280;font-weight:600">ตัดออก</div>
+            <input id="cut-qty" type="number" min="0.01" step="0.01" max="${s.currentStock}" placeholder="0"
+              oninput="updateCutPreview(${s.currentStock})"
+              style="font-size:20px;font-weight:800;color:#dc2626;text-align:center;width:100%;padding:4px;margin:0;border:2px solid #fca5a5;border-radius:6px">
+            <div style="font-size:11px;color:#6b7280">${s.unit}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#6b7280;font-weight:600">คงเหลือ</div>
+            <div style="font-size:20px;font-weight:800;color:#16a34a" id="cut-remaining">${s.currentStock}</div>
+            <div style="font-size:11px;color:#6b7280">${s.unit}</div>
+          </div>
+        </div>
+        <div id="cut-warning" style="margin-top:8px;text-align:center;font-size:12px;color:#dc2626;font-weight:700" class="hidden"></div>
+      </div>
+
+      <div style="margin-bottom:10px">
+        <span class="field-label" style="color:#92400e">📝 หมายเหตุการตัด (ไม่บังคับ)</span>
+        <input id="cut-note" placeholder="เช่น ตัดให้ลูกค้า / ขาย / ชำรุด" style="font-size:12px;padding:7px 10px;margin:0;border-color:#fbbf24;background:#fffbeb">
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button id="cut-confirm-btn" onclick="confirmCutScrap('${s.code}')" style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✂️ ยืนยันตัดสต็อก</button>
+        <button onclick="document.getElementById('scrap-form-area').innerHTML=''" style="padding:11px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // focus ช่องตัด
+  setTimeout(() => document.getElementById('cut-qty')?.focus(), 300);
+}
+
+function updateCutPreview(currentStock) {
+  const cutQty = Number(document.getElementById('cut-qty')?.value || 0);
+  const remaining = currentStock - cutQty;
+  const el = document.getElementById('cut-remaining');
+  const warn = document.getElementById('cut-warning');
+  const btn = document.getElementById('cut-confirm-btn');
+  if (el) {
+    el.textContent = remaining < 0 ? '0' : remaining.toFixed(2).replace(/\.?0+$/, '');
+    el.style.color = remaining < 0 ? '#dc2626' : '#16a34a';
+  }
+  if (remaining < 0) {
+    warn.textContent = '⚠ สต็อกไม่พอ! เกิน ' + Math.abs(remaining) + ' หน่วย';
+    warn.classList.remove('hidden');
+    if (btn) btn.disabled = true;
+  } else if (cutQty <= 0) {
+    warn.textContent = '';
+    warn.classList.add('hidden');
+    if (btn) btn.disabled = true;
+  } else {
+    warn.classList.add('hidden');
+    if (btn) btn.disabled = false;
+  }
+}
+
+function confirmCutScrap(code) {
+  const cutQty = Number(document.getElementById('cut-qty')?.value || 0);
+  const cutNote = document.getElementById('cut-note')?.value.trim() || '';
+  if (cutQty <= 0) { alert('กรุณากรอกจำนวนที่ตัด'); return; }
+
+  const btn = document.getElementById('cut-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังตัดสต็อก...'; }
+
+  callAPI('cutScrap', { code, cutQty, operator: currentUser?.displayName || '', cutNote })
+    .then(r => {
+      if (r.success) {
+        document.getElementById('scrap-form-area').innerHTML = '';
+        const msg = r.deleted
+          ? `✂️ ตัดสต็อก "${code}" — ${r.before} → 0 — 🗑 ลบออกจากระบบแล้ว (หมดสต็อก)`
+          : `✂️ ตัดสต็อก "${code}" — ${r.before} → ${r.after}`;
+        showResult(msg, true);
+        loadScraps();
+      } else {
+        alert(r.error);
+        if (btn) { btn.disabled = false; btn.textContent = '✂️ ยืนยันตัดสต็อก'; }
+      }
+    })
+    .catch(e => { alert('❌ ' + e.message); if (btn) { btn.disabled = false; btn.textContent = '✂️ ยืนยันตัดสต็อก'; } });
+}
+
+function deleteScrap(code) {
+  if (!confirm('ลบ "' + code + '" จากสต็อกเศษสาย?')) return;
+  callAPI('deleteScrap', { code })
+    .then(r => {
+      if (r.success) { showResult('ลบ "' + code + '" แล้ว', true); loadScraps(); }
+      else alert(r.error);
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+// ═══ ประวัติการตัดสต็อก (SCRAP_LOG) ═══
+function loadScrapLog() {
+  const from = document.getElementById('scrap-log-from')?.value || '';
+  const to   = document.getElementById('scrap-log-to')?.value || '';
+  const el   = document.getElementById('scrap-log-list');
+  el.innerHTML = '<p style="color:#9ca3af;font-size:12px">⏳ กำลังโหลด...</p>';
+
+  callAPI('getScrapLog', { dateFrom: from, dateTo: to })
+    .then(res => {
+      const rows = res.rows || [];
+      if (!rows.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:12px">ไม่พบประวัติ</p>'; return; }
+      el.innerHTML = `
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:600px">
+            <thead>
+              <tr style="background:#92400e;color:#fff">
+                <th style="padding:6px 8px;text-align:left;white-space:nowrap">วันที่-เวลา</th>
+                <th style="padding:6px 8px;text-align:left">รหัส</th>
+                <th style="padding:6px 8px;text-align:left">ชื่อสินค้า</th>
+                <th style="padding:6px 8px;text-align:center">ตัดออก</th>
+                <th style="padding:6px 8px;text-align:center">ก่อน</th>
+                <th style="padding:6px 8px;text-align:center">หลัง</th>
+                <th style="padding:6px 8px;text-align:left">ผู้ตัด</th>
+                <th style="padding:6px 8px;text-align:left">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
+                <td style="padding:5px 8px;white-space:nowrap;color:#374151">${r.datetime}</td>
+                <td style="padding:5px 8px;font-size:10px;color:#92400e;font-weight:700">${r.code}</td>
+                <td style="padding:5px 8px">${r.name}</td>
+                <td style="padding:5px 8px;text-align:center;color:#dc2626;font-weight:700">-${r.cutQty} ${r.unit}</td>
+                <td style="padding:5px 8px;text-align:center;color:#6b7280">${r.stockBefore}</td>
+                <td style="padding:5px 8px;text-align:center;color:#16a34a;font-weight:700">${r.stockAfter}</td>
+                <td style="padding:5px 8px">${r.operator}</td>
+                <td style="padding:5px 8px;color:#6b7280">${r.note||'—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:#6b7280;margin-top:6px;text-align:right">รวม ${rows.length} รายการ</div>`;
+    })
+    .catch(e => { el.innerHTML = '<p style="color:#dc2626;font-size:12px">❌ ' + e.message + '</p>'; });
+}
+
+// ════════════════════════════════════════════════════
+//  ADD ITEM IN DOCUMENT MODAL
+// ════════════════════════════════════════════════════
+let _docAddItem = null; // item ที่เลือกจาก lookup
+let _docAddNextIdx = 900; // idx สำหรับ row ใหม่ (เริ่มจาก 900 กันชนกับ row เดิม)
+
+function toggleDocAddForm() {
+  const form = document.getElementById('doc-add-form');
+  if (form) form.classList.toggle('hidden');
+}
+
+function lookupDocNewItem() {
+  const code = document.getElementById('doc-add-code')?.value.trim() || '';
+  const nameEl = document.getElementById('doc-add-name');
+  const pickerEl = document.getElementById('doc-add-picker');
+  _docAddItem = null;
+  if (!nameEl) return;
+
+  if (code.length < 3) {
+    nameEl.value = ''; nameEl.className = 'name-input empty';
+    if (pickerEl) { pickerEl.innerHTML = ''; pickerEl.classList.add('hidden'); }
+    return;
+  }
+  if (!DB_READY) { nameEl.value = '⏳'; nameEl.className = 'name-input hint'; return; }
+
+  // ค้นหา
+  const wh = document.getElementById('doc-add-wh')?.value || '';
+  let item = findExact(code, wh) || findExact(code, '');
+  if (!item) {
+    const candidates = filterDB(code, '').slice(0, 10);
+    if (candidates.length === 1) {
+      item = candidates[0];
+    } else if (candidates.length > 1) {
+      nameEl.value = `พบ ${candidates.length} รายการ — เลือกด้านล่าง`;
+      nameEl.className = 'name-input hint';
+      if (pickerEl) {
+        pickerEl.classList.remove('hidden');
+        pickerEl.innerHTML = candidates.map((ci, i) =>
+          `<div onclick="selectDocAddItem(${i})" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #e5e7eb;font-size:11px;background:#fff" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
+            <b style="color:#1e40af">${ci.code}</b> — ${ci.name}
+            <span style="color:#6b7280;font-size:10px">📍 ${ci.warehouse} · ${ci.stock} ${ci.unit}</span>
+          </div>`
+        ).join('');
+        pickerEl.style.cssText = 'margin-bottom:6px;border:1.5px solid #93c5fd;border-radius:6px;overflow:hidden;max-height:160px;overflow-y:auto';
+        // เก็บ candidates ไว้เลือก
+        window._docAddCandidates = candidates;
+      }
+      return;
+    }
+  }
+
+  if (item) {
+    _selectDocAddItemDirect(item, nameEl, pickerEl);
+  } else {
+    nameEl.value = `ไม่พบ "${code}"`; nameEl.className = 'name-input err';
+    if (pickerEl) { pickerEl.innerHTML = ''; pickerEl.classList.add('hidden'); }
+  }
+}
+
+function selectDocAddItem(idx) {
+  const item = window._docAddCandidates?.[idx];
+  if (!item) return;
+  const nameEl = document.getElementById('doc-add-name');
+  const pickerEl = document.getElementById('doc-add-picker');
+  _selectDocAddItemDirect(item, nameEl, pickerEl);
+}
+
+function _selectDocAddItemDirect(item, nameEl, pickerEl) {
+  _docAddItem = item;
+  const codeEl = document.getElementById('doc-add-code');
+  if (codeEl) codeEl.value = item.code;
+  nameEl.value = item.name; nameEl.className = 'name-input';
+  if (pickerEl) { pickerEl.innerHTML = ''; pickerEl.classList.add('hidden'); }
+  // เติม warehouse และ floor
+  const whEl = document.getElementById('doc-add-wh');
+  if (whEl && item.warehouse) {
+    for (let i = 0; i < whEl.options.length; i++) {
+      if (whEl.options[i].value === item.warehouse) { whEl.selectedIndex = i; break; }
+    }
+  }
+  const flEl = document.getElementById('doc-add-floor');
+  if (flEl && item.floor) flEl.value = item.floor;
+}
+
+function confirmAddDocItem() {
+  const code  = document.getElementById('doc-add-code')?.value.trim();
+  const qty   = Number(document.getElementById('doc-add-qty')?.value || 0);
+  const wh    = document.getElementById('doc-add-wh')?.value || '';
+  const floor = document.getElementById('doc-add-floor')?.value.trim() || '';
+  const remark = document.getElementById('doc-add-remark')?.value.trim() || '';
+
+  if (!code)  { alert('กรุณากรอกรหัสสินค้า'); return; }
+  if (qty < 1){ alert('กรุณากรอกจำนวน'); return; }
+
+  const name   = _docAddItem?.name || code;
+  const unit   = _docAddItem?.unit || '';
+  const factor = _docAddItem?.unitFactor || 1;
+  const pieces = qty * factor;
+  const idx    = _docAddNextIdx++;
+
+  const isTransfer = currentDocType === 'ย้ายโกดัง';
+  const tbody = document.getElementById('doc-tbody');
+
+  if (isTransfer) {
+    // ดึง from/to จาก row แรก
+    const firstInp = document.querySelector('#doc-tbody input[type=number][data-from]');
+    const fromWh = firstInp?.dataset.from || '';
+    const toWh   = firstInp?.dataset.to   || '';
+    const tr = document.createElement('tr');
+    tr.id = `trow-${idx}`;
+    tr.innerHTML = `
+      <td style="text-align:center">—</td>
+      <td style="font-size:10px">${code}</td>
+      <td>${name}</td>
+      <td style="text-align:center">
+        <input type="number" min="1" value="${qty}" id="tdqty-${idx}"
+          data-code="${code}" data-from="${fromWh}" data-to="${toWh}"
+          data-name="${name}" data-unit="${unit}" data-floor="${floor}" data-factor="${factor}">
+      </td>
+      <td style="text-align:center">${unit}</td>
+      <td><input type="text" id="tremark-doc-${idx}" value="${remark}" placeholder="—"
+        style="width:100%;font-size:10px;padding:3px 5px;border:1px solid #d1d5db;border-radius:4px;margin:0"></td>
+      <td style="text-align:center"><button class="btn-del-row" onclick="document.getElementById('trow-${idx}').remove()">🗑</button></td>`;
+    tbody.appendChild(tr);
+  } else {
+    // เบิก/รับเข้า — เพิ่ม warehouse header ถ้ายังไม่มี
+    const tr = document.createElement('tr');
+    tr.id = `drow-${idx}`;
+    tr.innerHTML = `
+      <td style="text-align:center">✦</td>
+      <td style="font-size:11px">${code}</td>
+      <td>${name}</td>
+      <td style="text-align:center">
+        <input type="number" min="1" value="${qty}" id="dqty-${idx}"
+          data-code="${code}" data-warehouse="${wh}" data-name="${name}"
+          data-unit="${unit}" data-floor="${floor}" data-factor="${factor}"
+          data-remark="${remark.replace(/"/g,'&quot;')}">
+      </td>
+      <td style="text-align:center">${unit}</td>
+      <td style="text-align:center"><b>${pieces}</b><small style="color:#6b7280;font-size:9px"> ชิ้น</small></td>
+      <td style="text-align:center">${floor}</td>
+      <td><input type="text" id="dremark-${idx}" value="${remark}" placeholder="—"
+        style="width:100%;font-size:10px;padding:3px 5px;border:1px solid #d1d5db;border-radius:4px;margin:0"></td>
+      <td style="text-align:center"><button class="btn-del-row" onclick="deleteDocRow(${idx})">🗑</button></td>`;
+    tbody.appendChild(tr);
+  }
+
+  // reset form
+  document.getElementById('doc-add-code').value = '';
+  document.getElementById('doc-add-name').value = '';
+  document.getElementById('doc-add-name').className = 'name-input empty';
+  document.getElementById('doc-add-qty').value = '';
+  document.getElementById('doc-add-floor').value = '';
+  document.getElementById('doc-add-remark').value = '';
+  _docAddItem = null;
+  const pickerEl = document.getElementById('doc-add-picker');
+  if (pickerEl) { pickerEl.innerHTML = ''; pickerEl.classList.add('hidden'); }
+
+  showResult(`✅ เพิ่ม "${code}" เรียบร้อย — อย่าลืมกด 💾 บันทึก`, true);
+}
+
+function showResult(msg, ok) {
+  const el = document.getElementById('result');
+  el.innerHTML = `<div class="result ${ok?'success':'error'}">${msg}</div>`;
+  if (ok) setTimeout(() => el.innerHTML = '', 8000);
+}
+</script>
+</body>
+</html>
