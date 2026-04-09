@@ -243,7 +243,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
   #doc-area { position: absolute; top: 0; left: 0; width: 100%; padding: 18px; }
   #preview-modal { position: absolute !important; overflow: visible !important; }
   #modal-inner { margin: 0 !important; box-shadow: none !important; }
-  .modal-topbar, .btn-del-row, #doc-add-area { display: none !important; }
+  .modal-topbar, .btn-del-row, #doc-add-area, #po-nav-area { display: none !important; }
   .edit-table input[type=number] { border: none; background: transparent; }
   .edit-table input[type=text] { border: none; background: transparent; }
   .edit-table { page-break-inside: auto; }
@@ -442,6 +442,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
           <option value="รอสั่งซื้อ" selected>🟡 รอสั่งซื้อ</option>
           <option value="สั่งแล้ว">🟢 สั่งแล้ว</option>
         </select>
+        <button onclick="generatePOPreview()" style="padding:6px 13px;background:#be123c;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📄 Generate ใบสั่งซื้อ</button>
         <button onclick="loadPOs()" style="padding:6px 11px;background:#fff1f2;color:#be123c;border:1px solid #fda4af;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
       </div>
       <div id="po-form-area"></div>
@@ -760,7 +761,7 @@ function switchTab(tid) {
   if (tid === 'catalog')  loadCatalog();
   if (tid === 'suppliers') loadSuppliers();
   if (tid === 'pr')       loadPRs();
-  if (tid === 'po')       loadPOs();
+  if (tid === 'po')       { loadPOs(); if(!allSuppliers.length) loadSuppliers(); }
   if (tid === 'users')    loadUsers();
   if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
 }
@@ -2626,7 +2627,159 @@ function markPOOrdered(rowNum) {
     .catch(e => alert('❌ '+e.message));
 }
 
-function closePreview() { document.getElementById('preview-modal').classList.remove('show'); }
+// ════════════════════════════════════════════════════
+//  GENERATE PO — ใบสั่งซื้อแยกตาม Supplier
+// ════════════════════════════════════════════════════
+let _poGrouped = {}; // { supplierName: [items...] }
+let _poSupplierList = []; // ['บริษัท A', 'บริษัท B']
+let _poCurrentIdx = 0;
+
+async function generatePOPreview() {
+  // ดึง PO ที่รอสั่งซื้อทั้งหมด
+  const pos = allPOs.filter(p => p.status === 'รอสั่งซื้อ' && p.supplier);
+  if (!pos.length) {
+    alert('ไม่มีรายการ "รอสั่งซื้อ" ที่ระบุบริษัทแล้ว\n\nกรุณากด ✏️ เลือกบริษัทที่จะสั่งก่อน');
+    return;
+  }
+
+  // Group by supplier
+  _poGrouped = {};
+  pos.forEach(po => {
+    if (!_poGrouped[po.supplier]) _poGrouped[po.supplier] = [];
+    _poGrouped[po.supplier].push(po);
+  });
+  _poSupplierList = Object.keys(_poGrouped);
+  _poCurrentIdx = 0;
+
+  // โหลดข้อมูล suppliers
+  let supData = {};
+  try {
+    const sups = await callAPI('getSuppliers');
+    (sups || []).forEach(s => { supData[s.name] = s; });
+  } catch(e) {}
+
+  window._poSupData = supData;
+  _renderPODocument();
+}
+
+function _renderPODocument() {
+  const supplier = _poSupplierList[_poCurrentIdx];
+  const items = _poGrouped[supplier] || [];
+  const supInfo = window._poSupData?.[supplier] || {};
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${now.getDate()}/${pad(now.getMonth()+1)}/${now.getFullYear()+543}`;
+  const poNo = `PO-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(_poCurrentIdx+1)}`;
+
+  const rowsHtml = items.map((it, idx) => `
+    <tr style="border-bottom:1px solid #d1d5db">
+      <td style="padding:8px 10px;text-align:center">${idx+1}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:700">${it.code}</td>
+      <td style="padding:8px 10px">${it.name}</td>
+      <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:14px">${it.qty}</td>
+      <td style="padding:8px 10px;text-align:center">${it.unit}</td>
+      <td style="padding:8px 10px;text-align:center">${it.transport||'—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#6b7280">${it.note1||''}${it.note2?' / '+it.note2:''}</td>
+    </tr>`).join('');
+
+  document.getElementById('doc-area').innerHTML = `
+    <div class="doc-header">
+      <div class="doc-title">ใบสั่งซื้อสินค้า</div>
+      <div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:12px">
+      <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:8px;padding:12px">
+        <div style="font-weight:700;color:#6d28d9;margin-bottom:6px;font-size:13px">🏢 สั่งซื้อจาก</div>
+        <div style="font-weight:700;font-size:15px;color:#1e293b">${supplier}</div>
+        ${supInfo.address?`<div style="color:#374151;margin-top:3px">📍 ${supInfo.address}</div>`:''}
+        ${supInfo.phone?`<div style="color:#374151">📞 ${supInfo.phone}</div>`:''}
+      </div>
+      <div style="font-size:12px">
+        <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${poNo}</div>
+        <div class="doc-meta-item"><span class="doc-meta-label">วันที่:</span> ${dateStr}</div>
+        <div class="doc-meta-item"><span class="doc-meta-label">ผู้สั่ง:</span> ${currentUser?.displayName||''}</div>
+        <div class="doc-meta-item"><span class="doc-meta-label">จำนวนรายการ:</span> ${items.length} รายการ</div>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">
+      <thead>
+        <tr style="background:#6d28d9;color:#fff">
+          <th style="padding:8px 10px;text-align:center;width:30px">ที่</th>
+          <th style="padding:8px 10px;text-align:left;width:110px">รหัสสินค้า</th>
+          <th style="padding:8px 10px;text-align:left">ชื่อสินค้า</th>
+          <th style="padding:8px 10px;text-align:center;width:70px">จำนวน</th>
+          <th style="padding:8px 10px;text-align:center;width:50px">หน่วย</th>
+          <th style="padding:8px 10px;text-align:center;width:80px">ขนส่ง</th>
+          <th style="padding:8px 10px;text-align:left;width:100px">หมายเหตุ</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+
+    <div class="doc-sign" style="grid-template-columns:1fr 1fr">
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้สั่งซื้อ</div></div>
+      <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้อนุมัติ</div></div>
+    </div>
+    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${poNo}</div>`;
+
+  // Navigation
+  const navHtml = _poSupplierList.length > 1
+    ? `<div style="display:flex;align-items:center;gap:8px">
+        <button onclick="_poCurrentIdx=Math.max(0,_poCurrentIdx-1);_renderPODocument()" style="padding:6px 12px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer" ${_poCurrentIdx===0?'disabled':''}>◀ ก่อนหน้า</button>
+        <span style="font-size:12px;color:#fff;font-weight:700">${_poCurrentIdx+1} / ${_poSupplierList.length}</span>
+        <button onclick="_poCurrentIdx=Math.min(_poSupplierList.length-1,_poCurrentIdx+1);_renderPODocument()" style="padding:6px 12px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer" ${_poCurrentIdx>=_poSupplierList.length-1?'disabled':''}>ถัดไป ▶</button>
+      </div>`
+    : '';
+
+  document.getElementById('modal-title').textContent = `ใบสั่งซื้อ — ${supplier} (${_poCurrentIdx+1}/${_poSupplierList.length})`;
+
+  // ซ่อนปุ่มเดิม แสดงปุ่ม PO
+  document.getElementById('btn-save').classList.add('hidden');
+  document.getElementById('btn-approve-w').classList.add('hidden');
+  document.getElementById('btn-approve-r').classList.add('hidden');
+  document.getElementById('btn-approve-t').classList.add('hidden');
+
+  // เพิ่มปุ่ม PO-specific ใน topbar
+  let poNavEl = document.getElementById('po-nav-area');
+  if (!poNavEl) {
+    poNavEl = document.createElement('div');
+    poNavEl.id = 'po-nav-area';
+    poNavEl.style.cssText = 'display:flex;gap:6px;align-items:center';
+    document.querySelector('.modal-topbar').insertBefore(poNavEl, document.querySelector('.mbar-close'));
+  }
+  poNavEl.innerHTML = `
+    ${navHtml}
+    <button onclick="markAllPOsOrdered()" style="padding:6px 12px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✔ สั่งทั้งหมดแล้ว</button>`;
+
+  document.getElementById('preview-modal').classList.add('show');
+}
+
+async function markAllPOsOrdered() {
+  const supplier = _poSupplierList[_poCurrentIdx];
+  const items = _poGrouped[supplier] || [];
+  const pending = items.filter(i => i.status === 'รอสั่งซื้อ');
+  if (!pending.length) { alert('ไม่มีรายการที่รอสั่งซื้อ'); return; }
+  if (!confirm(`ยืนยันว่าสั่งซื้อจาก "${supplier}" ทั้ง ${pending.length} รายการแล้ว?`)) return;
+
+  try {
+    for (const po of pending) {
+      await callAPI('markPOOrdered', { rowNum: po.row, orderedBy: currentUser?.displayName || '' });
+    }
+    showResult(`✅ อัปเดตสถานะ "${supplier}" — ${pending.length} รายการ: สั่งแล้ว`, true);
+    closePreview();
+    loadPOs();
+  } catch(e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+function closePreview() {
+  document.getElementById('preview-modal').classList.remove('show');
+  const poNav = document.getElementById('po-nav-area');
+  if (poNav) poNav.remove();
+}
 
 // ════════════════════════════════════════════════════
 //  SCRAPS — เศษสายไฟ / ไฟริบบิ้น
