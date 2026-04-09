@@ -391,6 +391,64 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     </div>
   </div>
 
+
+  <!-- TAB: สินค้าทั้งหมด -->
+  <div id="tab-catalog" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">📖 สินค้าทั้งหมด</span>
+        <input id="cat-search" placeholder="ค้นหา รหัส / ชื่อ / บาร์โค้ด..." oninput="renderCatalog()" style="width:200px;font-size:12px;padding:6px 10px;margin:0">
+        <button onclick="showCatalogForm(null)" style="padding:6px 13px;background:#0d9488;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">+ เพิ่ม</button>
+        <button onclick="loadCatalog()" style="padding:6px 11px;background:#f0fdfa;color:#0d9488;border:1px solid #5eead4;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div id="cat-form-area"></div>
+      <div id="cat-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลด</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: เจ้าหนี้ / Suppliers -->
+  <div id="tab-suppliers" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">🏢 เจ้าหนี้ / ผู้จำหน่าย</span>
+        <button onclick="showSupplierForm(null)" style="padding:6px 13px;background:#6d28d9;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">+ เพิ่ม</button>
+        <button onclick="loadSuppliers()" style="padding:6px 11px;background:#f5f3ff;color:#6d28d9;border:1px solid #c4b5fd;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div id="sup-form-area"></div>
+      <div id="sup-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลด</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: ใบขอสั่งสินค้า -->
+  <div id="tab-pr" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">📝 ใบขอสั่งสินค้า</span>
+        <button onclick="showPRForm(null)" style="padding:6px 13px;background:#ea580c;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">+ เปิดใบขอสั่ง</button>
+        <button onclick="loadPRs()" style="padding:6px 11px;background:#fff7ed;color:#ea580c;border:1px solid #fdba74;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div id="pr-form-area"></div>
+      <div id="pr-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลด</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: ใบสั่งซื้อ -->
+  <div id="tab-po" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">🛒 ใบสั่งซื้อ</span>
+        <select id="po-status-filter" onchange="renderPOs()" style="font-size:12px;padding:5px 10px;margin:0;width:auto">
+          <option value="ทั้งหมด">ทั้งหมด</option>
+          <option value="รอสั่งซื้อ" selected>🟡 รอสั่งซื้อ</option>
+          <option value="สั่งแล้ว">🟢 สั่งแล้ว</option>
+        </select>
+        <button onclick="loadPOs()" style="padding:6px 11px;background:#fff1f2;color:#be123c;border:1px solid #fda4af;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div id="po-form-area"></div>
+      <div id="po-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลด</p></div>
+    </div>
+  </div>
+
   <!-- TAB: รายงาน -->
   <div id="tab-report" class="hidden">
     <div class="card">
@@ -505,13 +563,13 @@ async function callAPI(action, params = {}) {
 //  CONFIG
 // ════════════════════════════════════════════════════
 const WH_LIST = ['ถนนสามัคคี','ดินสอ','กิฟฟารีน','ท่อเหล็ก','ท่อใหญ่','ฝั่งธน','สิโรรส'];
-// ROLE_TABS ใช้เป็น default เมื่อ user ไม่มี permissions กำหนด
+const TRANSPORT_LIST = ['สามัคคี','พัทรทรัพย์','พัฒนาเอ็กซ์เพรส'];
 const ROLE_TABS = {
-  admin : ['withdraw','receive','transfer','search','docs','products','scraps','report','users'],
-  stock : ['withdraw','receive','transfer','search','docs','products','scraps','report'],
-  sales : ['withdraw','search','docs','scraps','report']
+  admin : ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','report','users'],
+  stock : ['withdraw','receive','transfer','search','docs','products','scraps','catalog','pr','report'],
+  sales : ['withdraw','search','docs','scraps','catalog','pr','report']
 };
-const ALL_TABS = ['withdraw','receive','transfer','search','docs','products','scraps','report','users'];
+const ALL_TABS = ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','report','users'];
 const TAB_META = {
   withdraw : '🔻 เบิกของ',
   receive  : '🔺 รับของเข้า',
@@ -520,6 +578,10 @@ const TAB_META = {
   docs     : '📋 เอกสาร',
   products : '📦 สินค้า',
   scraps   : '🔌 เศษสาย',
+  catalog  : '📖 สินค้าทั้งหมด',
+  suppliers: '🏢 เจ้าหนี้',
+  pr       : '📝 ใบขอสั่ง',
+  po       : '🛒 ใบสั่งซื้อ',
   report   : '📊 รายงาน',
   users    : '👥 ผู้ใช้'
 };
@@ -621,16 +683,15 @@ function _getAllowedTabs() {
     tabs = ROLE_TABS['admin'];
   } else if (currentUser.permissions) {
     var perms = currentUser.permissions.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
-    perms = perms.filter(function(p){ return p !== 'users' && p !== 'warehouse_detail' && p !== 'approve'; });
+    perms = perms.filter(function(p){ return p !== 'users' && p !== 'warehouse_detail' && p !== 'approve' && p !== 'view_cost'; });
     tabs = perms.length ? perms : ROLE_TABS[role] || ['withdraw','search','docs'];
   } else {
     tabs = ROLE_TABS[role] || ['withdraw','search','docs'];
   }
-  // scraps ใช้ได้ทุกคน — inject ถ้ายังไม่มี
-  if (tabs.indexOf('scraps') === -1) {
-    tabs = tabs.slice(); // clone กัน mutate ต้นฉบับ
-    tabs.push('scraps');
-  }
+  // scraps + catalog ใช้ได้ทุกคน
+  tabs = tabs.slice();
+  if (tabs.indexOf('scraps') === -1) tabs.push('scraps');
+  if (tabs.indexOf('catalog') === -1) tabs.push('catalog');
   return tabs;
 }
 
@@ -696,6 +757,10 @@ function switchTab(tid) {
   if (tid === 'docs')     loadDocs();
   if (tid === 'products') loadProducts();
   if (tid === 'scraps')   loadScraps();
+  if (tid === 'catalog')  loadCatalog();
+  if (tid === 'suppliers') loadSuppliers();
+  if (tid === 'pr')       loadPRs();
+  if (tid === 'po')       loadPOs();
   if (tid === 'users')    loadUsers();
   if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
 }
@@ -1964,7 +2029,12 @@ function showUserForm(username, displayName, role, permissions) {
     search:'🔍 ค้นหา', docs:'📋 เอกสาร', products:'📦 สินค้า',
     approve:'✅ อนุมัติเอกสาร',
     scraps:'🔌 เศษสายไฟ/ริบบิ้น',
-    warehouse_detail:'🏭 ดูรายละเอียดโกดัง/ชั้น'
+    warehouse_detail:'🏭 ดูรายละเอียดโกดัง/ชั้น',
+    catalog:'📖 สินค้าทั้งหมด',
+    view_cost:'💰 ดูราคาต้นทุน',
+    purchase_request:'📝 เปิดใบขอสั่ง',
+    purchase_order:'🛒 จัดการใบสั่งซื้อ',
+    suppliers:'🏢 จัดการเจ้าหนี้'
   };
   const permChecks = Object.entries(TAB_LABELS).map(([key, label]) =>
     `<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;margin-bottom:5px;cursor:pointer">
@@ -2065,6 +2135,495 @@ function doSearch() {
       </div>`;
     }).join('');
   }
+}
+
+
+// ════════════════════════════════════════════════════
+//  CATALOG — สินค้าทั้งหมด (PRODUCTS_ALL)
+// ════════════════════════════════════════════════════
+let allCatalog = [];
+
+function _canViewCost() {
+  if (!currentUser) return false;
+  if (currentUser.role === 'admin') return true;
+  return (currentUser.permissions || '').split(',').map(p=>p.trim()).includes('view_cost');
+}
+
+function loadCatalog() {
+  document.getElementById('cat-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getProductsAll')
+    .then(res => { allCatalog = res || []; renderCatalog(); })
+    .catch(e => { document.getElementById('cat-list').innerHTML = '<p style="color:#dc2626">❌ '+e.message+'</p>'; });
+}
+
+function renderCatalog() {
+  const q = (document.getElementById('cat-search')?.value||'').trim().toUpperCase();
+  const el = document.getElementById('cat-list');
+  const canCost = _canViewCost();
+  const canEdit = _canCutScrap(); // ใช้ warehouse_detail เป็นตัวกำหนดสิทธิ์แก้ไข
+  let items = allCatalog;
+  if (q) items = items.filter(i => [i.code,i.name,i.barcode,i.unit].join(' ').toUpperCase().includes(q));
+  if (!items.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบสินค้า</p>'; return; }
+  el.innerHTML = items.map(i => {
+    const esc = JSON.stringify(i).replace(/"/g,'&quot;');
+    return `<div class="prod-row" style="border-left:3px solid #0d9488">
+      <div class="prod-row-info">
+        <div class="prod-row-code" style="color:#0d9488">${i.code}${i.barcode?' <span style="color:#6b7280;font-weight:400">🔖'+i.barcode+'</span>':''}</div>
+        <div class="prod-row-name">${i.name}</div>
+        <div class="prod-row-sub">${i.unit}${canCost?' · 💰 ต้นทุน: '+i.costBeforeTax.toLocaleString()+' / รวมภาษี: '+i.costWithTax.toLocaleString():''}${i.note?' · '+i.note:''}</div>
+      </div>
+      ${canEdit?`<button class="btn-edit-prod" style="border-color:#5eead4;color:#0d9488" onclick="showCatalogForm(${esc})">✏️</button>
+      <button class="btn-delete-doc" onclick="deleteCatalogItem('${i.code}')">🗑</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function showCatalogForm(item) {
+  const isNew = !item; const s = item || {};
+  const canCost = _canViewCost();
+  document.getElementById('cat-form-area').innerHTML = `
+    <div style="background:#f0fdfa;border:1.5px solid #5eead4;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#0d9488">${isNew?'➕ เพิ่มสินค้า':'✏️ แก้ไข: '+s.code}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:12px">รหัสสินค้า *</label>
+          <input id="ca-code" value="${s.code||''}" ${isNew?'':'readonly style="background:#f3f4f6"'}></div>
+        <div><label style="font-size:12px">บาร์โค้ด</label>
+          <input id="ca-barcode" value="${s.barcode||''}"></div>
+        <div style="grid-column:1/-1"><label style="font-size:12px">ชื่อสินค้า *</label>
+          <input id="ca-name" value="${s.name||''}"></div>
+        <div><label style="font-size:12px">หน่วย *</label>
+          <input id="ca-unit" value="${s.unit||''}"></div>
+        ${canCost?`<div></div>
+        <div><label style="font-size:12px">💰 ต้นทุนก่อนภาษี</label>
+          <input id="ca-cost1" type="number" step="0.01" value="${s.costBeforeTax||0}" style="text-align:center"></div>
+        <div><label style="font-size:12px">💰 ต้นทุนรวมภาษี</label>
+          <input id="ca-cost2" type="number" step="0.01" value="${s.costWithTax||0}" style="text-align:center"></div>`
+        :'<input type="hidden" id="ca-cost1" value="'+String(s.costBeforeTax||0)+'"><input type="hidden" id="ca-cost2" value="'+String(s.costWithTax||0)+'">'}
+        <div style="grid-column:1/-1"><label style="font-size:12px">หมายเหตุ</label>
+          <input id="ca-note" value="${s.note||''}"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="ca-save" onclick="saveCatalogItem(${isNew})" style="padding:9px 18px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${isNew?'💾 เพิ่ม':'💾 บันทึก'}</button>
+        <button onclick="document.getElementById('cat-form-area').innerHTML=''" style="padding:9px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+}
+
+function saveCatalogItem(isNew) {
+  const item = {
+    code: document.getElementById('ca-code')?.value.trim(),
+    barcode: document.getElementById('ca-barcode')?.value.trim(),
+    name: document.getElementById('ca-name')?.value.trim(),
+    unit: document.getElementById('ca-unit')?.value.trim(),
+    costBeforeTax: Number(document.getElementById('ca-cost1')?.value||0),
+    costWithTax: Number(document.getElementById('ca-cost2')?.value||0),
+    note: document.getElementById('ca-note')?.value.trim()
+  };
+  if (!item.code||!item.name||!item.unit) { alert('กรุณากรอกข้อมูลให้ครบ'); return; }
+  const btn = document.getElementById('ca-save');
+  if (btn) { btn.disabled=true; btn.textContent='⏳'; }
+  callAPI(isNew?'addProductAll':'updateProductAll', { item })
+    .then(r => { if(r.success){document.getElementById('cat-form-area').innerHTML='';showResult('✅ บันทึกสำเร็จ',true);loadCatalog();}else{alert(r.error);if(btn){btn.disabled=false;btn.textContent=isNew?'💾 เพิ่ม':'💾 บันทึก';}} })
+    .catch(e => { alert('❌ '+e.message); if(btn){btn.disabled=false;btn.textContent=isNew?'💾 เพิ่ม':'💾 บันทึก';} });
+}
+
+function deleteCatalogItem(code) {
+  if (!confirm('ลบ "'+code+'" ?')) return;
+  callAPI('deleteProductAll', { code }).then(r => { if(r.success){showResult('ลบแล้ว',true);loadCatalog();}else alert(r.error); }).catch(e => alert('❌ '+e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  SUPPLIERS — เจ้าหนี้
+// ════════════════════════════════════════════════════
+let allSuppliers = [];
+
+function loadSuppliers() {
+  document.getElementById('sup-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getSuppliers')
+    .then(res => { allSuppliers = res || []; renderSuppliers(); })
+    .catch(e => { document.getElementById('sup-list').innerHTML = '<p style="color:#dc2626">❌ '+e.message+'</p>'; });
+}
+
+function renderSuppliers() {
+  const el = document.getElementById('sup-list');
+  if (!allSuppliers.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ยังไม่มีเจ้าหนี้</p>'; return; }
+  el.innerHTML = allSuppliers.map(s => {
+    const esc = JSON.stringify(s).replace(/"/g,'&quot;');
+    return `<div class="prod-row" style="border-left:3px solid #6d28d9">
+      <div class="prod-row-info">
+        <div class="prod-row-code" style="color:#6d28d9">${s.id}</div>
+        <div class="prod-row-name">${s.name}</div>
+        <div class="prod-row-sub">${s.phone?'📞 '+s.phone:''}${s.address?' · 📍 '+s.address:''}${s.note?' · '+s.note:''}</div>
+      </div>
+      <button class="btn-edit-prod" style="border-color:#c4b5fd;color:#6d28d9" onclick="showSupplierForm(${esc})">✏️</button>
+      <button class="btn-delete-doc" onclick="deleteSupplier('${s.id}')">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+function showSupplierForm(item) {
+  const isNew = !item; const s = item || {};
+  document.getElementById('sup-form-area').innerHTML = `
+    <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#6d28d9">${isNew?'➕ เพิ่มเจ้าหนี้':'✏️ แก้ไข: '+s.name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:12px">รหัสเจ้าหนี้ *</label>
+          <input id="su-id" value="${s.id||''}" ${isNew?'':'readonly style="background:#f3f4f6"'}></div>
+        <div><label style="font-size:12px">ชื่อ *</label>
+          <input id="su-name" value="${s.name||''}"></div>
+        <div><label style="font-size:12px">เบอร์โทร</label>
+          <input id="su-phone" value="${s.phone||''}"></div>
+        <div><label style="font-size:12px">หมายเหตุ</label>
+          <input id="su-note" value="${s.note||''}"></div>
+        <div style="grid-column:1/-1"><label style="font-size:12px">ที่อยู่</label>
+          <input id="su-addr" value="${s.address||''}"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="su-save" onclick="saveSupplier(${isNew})" style="padding:9px 18px;background:#6d28d9;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${isNew?'💾 เพิ่ม':'💾 บันทึก'}</button>
+        <button onclick="document.getElementById('sup-form-area').innerHTML=''" style="padding:9px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+}
+
+function saveSupplier(isNew) {
+  const item = { id: document.getElementById('su-id')?.value.trim(), name: document.getElementById('su-name')?.value.trim(),
+    address: document.getElementById('su-addr')?.value.trim(), phone: document.getElementById('su-phone')?.value.trim(),
+    note: document.getElementById('su-note')?.value.trim() };
+  if (!item.id||!item.name) { alert('กรุณากรอกรหัสและชื่อ'); return; }
+  const btn = document.getElementById('su-save'); if(btn){btn.disabled=true;btn.textContent='⏳';}
+  callAPI(isNew?'addSupplier':'updateSupplier', { item })
+    .then(r => { if(r.success){document.getElementById('sup-form-area').innerHTML='';showResult('✅ บันทึกสำเร็จ',true);loadSuppliers();}else{alert(r.error);if(btn){btn.disabled=false;btn.textContent=isNew?'💾 เพิ่ม':'💾 บันทึก';}} })
+    .catch(e => { alert('❌ '+e.message); if(btn){btn.disabled=false;btn.textContent=isNew?'💾 เพิ่ม':'💾 บันทึก';} });
+}
+
+function deleteSupplier(id) {
+  if (!confirm('ลบเจ้าหนี้ "'+id+'" ?')) return;
+  callAPI('deleteSupplier', { id }).then(r => { if(r.success){showResult('ลบแล้ว',true);loadSuppliers();}else alert(r.error); }).catch(e => alert('❌ '+e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  PURCHASE REQUEST — ใบขอสั่งสินค้า
+// ════════════════════════════════════════════════════
+let allPRs = [], prItemCount = 0;
+let _catalogCache = []; // cache สินค้าทั้งหมดสำหรับ lookup
+
+function _loadCatalogCache() {
+  if (_catalogCache.length > 0) return Promise.resolve();
+  return callAPI('getProductsAll').then(res => { _catalogCache = res || []; });
+}
+
+function _findCatalogItem(q) {
+  const qu = q.toUpperCase();
+  return _catalogCache.filter(i => i.code.toUpperCase().includes(qu) || i.name.toUpperCase().includes(qu) || (i.barcode||'').toUpperCase().includes(qu));
+}
+
+function loadPRs() {
+  document.getElementById('pr-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  callAPI('getPurchaseRequests')
+    .then(res => { allPRs = res || []; renderPRList(); })
+    .catch(e => { document.getElementById('pr-list').innerHTML = '<p style="color:#dc2626">❌ '+e.message+'</p>'; });
+}
+
+function renderPRList() {
+  const el = document.getElementById('pr-list');
+  if (!allPRs.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ยังไม่มีใบขอสั่ง</p>'; return; }
+  el.innerHTML = allPRs.map(pr => {
+    const isPending = pr.status === 'รอการอนุมัติ';
+    const cls = isPending ? 'pending' : 'approved';
+    return `<div class="doc-card ${cls}" onclick="openPRDetail('${pr.prNo}')">
+      <div class="doc-card-header">
+        <span class="doc-card-no">📝 ${pr.prNo}</span>
+        <span class="doc-status-badge ${cls}">${isPending?'⏳ รอ':'✅ อนุมัติ'}</span>
+        ${isPending?`<button class="btn-delete-doc" onclick="event.stopPropagation();deletePR('${pr.prNo}')">🗑</button>`:''}
+      </div>
+      <div class="doc-card-meta">${pr.operator} · ${pr.datetime}${pr.note?' · '+pr.note:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function showPRForm(existingPR) {
+  _loadCatalogCache().then(() => {
+    const isEdit = !!existingPR;
+    prItemCount = 0;
+    const area = document.getElementById('pr-form-area');
+    const prNo = existingPR?.prNo || _genDocNo('PR');
+    const items = existingPR?.items || [];
+    area.innerHTML = `
+      <div style="background:#fff7ed;border:2px solid #ea580c;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#ea580c">${isEdit?'✏️ แก้ไข: '+prNo:'📝 เปิดใบขอสั่งสินค้าใหม่'}</div>
+        <input type="hidden" id="pr-no" value="${prNo}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div><label style="font-size:12px">ผู้ทำรายการ</label>
+            <input id="pr-op" value="${existingPR?.operator || currentUser?.displayName || ''}" style="font-size:13px"></div>
+          <div><label style="font-size:12px">หมายเหตุ</label>
+            <input id="pr-note" value="${existingPR?.note || ''}" placeholder="—" style="font-size:13px"></div>
+        </div>
+        <div id="pr-items-area"></div>
+        <button onclick="addPRItemRow()" style="width:100%;padding:8px;border:1.5px dashed #ea580c;border-radius:8px;background:#fff7ed;color:#ea580c;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px">+ เพิ่มสินค้า</button>
+        <div style="display:flex;gap:8px">
+          <button id="pr-save-btn" onclick="savePR()" style="padding:10px 20px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">💾 บันทึกใบขอสั่ง</button>
+          <button onclick="document.getElementById('pr-form-area').innerHTML=''" style="padding:10px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+        </div>
+      </div>`;
+    // เติม items ที่มีอยู่
+    if (items.length > 0) {
+      items.forEach(it => addPRItemRow(it));
+    } else {
+      addPRItemRow();
+    }
+    area.scrollIntoView({ behavior: 'smooth' });
+  });
+}
+
+function addPRItemRow(prefill) {
+  const iid = ++prItemCount;
+  const p = prefill || {};
+  const div = document.createElement('div');
+  div.className = 'item-line'; div.id = `prline-${iid}`;
+  div.style.cssText = 'border-color:#fdba74;margin-bottom:6px';
+  div.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 30px;gap:5px;align-items:end;margin-bottom:4px">
+      <div><span class="field-label">รหัส / ชื่อ / บาร์โค้ด</span>
+        <input id="prc-${iid}" value="${p.code||''}" placeholder="ค้นหา..." oninput="lookupPRItem(${iid})" style="font-size:12px;padding:7px 9px;margin:0"></div>
+      <div><span class="field-label">ชื่อสินค้า</span>
+        <input id="prn-${iid}" value="${p.name||''}" readonly class="name-input ${p.name?'':'empty'}" placeholder="— อัตโนมัติ —" style="font-size:12px;padding:7px 9px;margin:0"></div>
+      <button class="btn-remove-item" onclick="document.getElementById('prline-${iid}')?.remove()" style="margin-top:16px">✕</button>
+    </div>
+    <div id="prpicker-${iid}" class="hidden"></div>
+    <div style="display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr 1fr;gap:5px;align-items:end">
+      <div><span class="field-label">จำนวนคงเหลือ</span>
+        <input id="prrem-${iid}" type="number" min="0" step="0.01" value="${p.remaining||''}" placeholder="0" style="font-size:12px;padding:6px;margin:0;text-align:center"></div>
+      <div><span class="field-label">หน่วย</span>
+        <input id="pru1-${iid}" value="${p.unit||''}" readonly class="name-input" style="font-size:11px;padding:6px;margin:0"></div>
+      <div><span class="field-label">จำนวนแนะนำสั่ง</span>
+        <input id="prrec-${iid}" type="number" min="0" step="0.01" value="${p.recommendQty||''}" placeholder="0" style="font-size:12px;padding:6px;margin:0;text-align:center;border-color:#ea580c"></div>
+      <div><span class="field-label">หน่วย</span>
+        <input id="pru2-${iid}" value="${p.unit||''}" readonly class="name-input" style="font-size:11px;padding:6px;margin:0"></div>
+      <div><span class="field-label">หมายเหตุ 1</span>
+        <input id="prn1-${iid}" value="${p.note1||''}" style="font-size:11px;padding:6px;margin:0"></div>
+      <div><span class="field-label">หมายเหตุ 2</span>
+        <input id="prn2-${iid}" value="${p.note2||''}" style="font-size:11px;padding:6px;margin:0"></div>
+    </div>
+    <div id="prwarn-${iid}" class="hidden" style="margin-top:4px;font-size:11px;color:#7c3aed;background:#f5f3ff;padding:6px 10px;border-radius:6px"></div>`;
+  document.getElementById('pr-items-area').appendChild(div);
+}
+
+function lookupPRItem(iid) {
+  const code = document.getElementById(`prc-${iid}`)?.value.trim() || '';
+  const nameEl = document.getElementById(`prn-${iid}`);
+  const pickerEl = document.getElementById(`prpicker-${iid}`);
+  if (code.length < 2) { nameEl.value=''; nameEl.className='name-input empty'; if(pickerEl){pickerEl.innerHTML='';pickerEl.classList.add('hidden');} return; }
+  const results = _findCatalogItem(code);
+  if (results.length === 1) {
+    _fillPRItem(iid, results[0]);
+  } else if (results.length > 1) {
+    nameEl.value = `พบ ${results.length} รายการ`;
+    nameEl.className = 'name-input hint';
+    if (pickerEl) {
+      pickerEl.classList.remove('hidden');
+      pickerEl.style.cssText = 'border:1.5px solid #fdba74;border-radius:6px;overflow:hidden;max-height:160px;overflow-y:auto;margin-bottom:4px';
+      pickerEl.innerHTML = results.slice(0,10).map((ci,i) =>
+        `<div data-idx="${i}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #e5e7eb;font-size:11px;background:#fff"
+          onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'"
+          onclick="window._prPickerCandidates=${JSON.stringify(results.slice(0,10)).replace(/"/g,"'")};_fillPRItem(${iid},JSON.parse(this.dataset.item))">
+          <b style="color:#ea580c">${ci.code}</b> — ${ci.name} ${ci.barcode?'🔖'+ci.barcode:''}
+        </div>`
+      ).join('');
+      // ง่ายกว่า — เก็บ candidates ใน window
+      window._prCandidates = results.slice(0,10);
+      pickerEl.querySelectorAll('div').forEach((el,i) => {
+        el.onclick = () => _fillPRItem(iid, window._prCandidates[i]);
+      });
+    }
+  } else {
+    nameEl.value = 'ไม่พบ'; nameEl.className = 'name-input err';
+    if(pickerEl){pickerEl.innerHTML='';pickerEl.classList.add('hidden');}
+  }
+  // เช็คสั่งซ้ำ
+  _checkDupOrder(iid, code);
+}
+
+function _fillPRItem(iid, item) {
+  document.getElementById(`prc-${iid}`).value = item.code;
+  document.getElementById(`prn-${iid}`).value = item.name;
+  document.getElementById(`prn-${iid}`).className = 'name-input';
+  document.getElementById(`pru1-${iid}`).value = item.unit;
+  document.getElementById(`pru2-${iid}`).value = item.unit;
+  const p = document.getElementById(`prpicker-${iid}`);
+  if(p){p.innerHTML='';p.classList.add('hidden');}
+  _checkDupOrder(iid, item.code);
+}
+
+function _checkDupOrder(iid, code) {
+  const warnEl = document.getElementById(`prwarn-${iid}`);
+  if (!warnEl || !code || code.length < 3) { if(warnEl)warnEl.classList.add('hidden'); return; }
+  callAPI('checkDuplicateOrder', { code }).then(r => {
+    if (r.found) {
+      warnEl.innerHTML = `⚠️ <b>สินค้านี้สั่งไปแล้ว!</b> เมื่อ ${r.orderedDate} จำนวน ${r.qty} ${r.unit} · บริษัท: ${r.supplier||'-'} · ขนส่ง: ${r.transport||'-'} · สถานะ: ${r.status} — <b>ถ้าจะสั่งซ้ำ กรุณาระบุเหตุผลในช่องหมายเหตุ</b>`;
+      warnEl.classList.remove('hidden');
+    } else { warnEl.classList.add('hidden'); }
+  }).catch(() => {});
+}
+
+function savePR() {
+  const prNo = document.getElementById('pr-no')?.value || '';
+  const op = document.getElementById('pr-op')?.value.trim() || '';
+  const note = document.getElementById('pr-note')?.value.trim() || '';
+  if (!op) { alert('กรุณากรอกชื่อผู้ทำรายการ'); return; }
+  const items = [];
+  document.querySelectorAll('#pr-items-area .item-line').forEach(line => {
+    const iid = line.id.replace('prline-','');
+    const code = document.getElementById(`prc-${iid}`)?.value.trim() || '';
+    const name = document.getElementById(`prn-${iid}`)?.value.trim() || '';
+    const remaining = Number(document.getElementById(`prrem-${iid}`)?.value || 0);
+    const recommendQty = Number(document.getElementById(`prrec-${iid}`)?.value || 0);
+    const unit = document.getElementById(`pru1-${iid}`)?.value.trim() || '';
+    const note1 = document.getElementById(`prn1-${iid}`)?.value.trim() || '';
+    const note2 = document.getElementById(`prn2-${iid}`)?.value.trim() || '';
+    if (code && recommendQty > 0) items.push({ code, name, remaining, recommendQty, unit, note1, note2 });
+  });
+  if (!items.length) { alert('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ'); return; }
+  const btn = document.getElementById('pr-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ กำลังบันทึก...';}
+  callAPI('savePurchaseRequest', { prNo, items, operator: op, note })
+    .then(r => { if(r.success){document.getElementById('pr-form-area').innerHTML='';showResult('💾 บันทึกใบขอสั่ง '+prNo+' สำเร็จ',true);loadPRs();}else{alert(r.error);if(btn){btn.disabled=false;btn.textContent='💾 บันทึกใบขอสั่ง';}} })
+    .catch(e => { alert('❌ '+e.message); if(btn){btn.disabled=false;btn.textContent='💾 บันทึกใบขอสั่ง';} });
+}
+
+function openPRDetail(prNo) {
+  callAPI('getPurchaseRequestDetail', { prNo })
+    .then(pr => {
+      if (!pr) { alert('ไม่พบ'); return; }
+      if (pr.status === 'อนุมัติแล้ว') {
+        // ดูอย่างเดียว
+        alert('ใบขอสั่ง '+prNo+' อนุมัติแล้วโดย '+pr.approvedBy+'\nสินค้า '+pr.items.length+' รายการ → สร้างใบสั่งซื้อแล้ว');
+      } else {
+        showPRForm(pr);
+        // เพิ่มปุ่มอนุมัติ
+        const area = document.getElementById('pr-form-area');
+        const approveBtn = document.createElement('button');
+        approveBtn.id = 'pr-approve-btn';
+        approveBtn.style.cssText = 'padding:10px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-left:8px';
+        approveBtn.textContent = '✔ อนุมัติใบขอสั่ง';
+        approveBtn.onclick = () => approvePR(prNo);
+        area.querySelector('div > div:last-child')?.appendChild(approveBtn);
+      }
+    })
+    .catch(e => alert('❌ '+e.message));
+}
+
+function approvePR(prNo) {
+  if (!confirm('อนุมัติใบขอสั่ง '+prNo+' ?\nระบบจะสร้างใบสั่งซื้ออัตโนมัติ')) return;
+  const btn = document.getElementById('pr-approve-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ กำลังอนุมัติ...';}
+  callAPI('approvePurchaseRequest', { prNo, approvedBy: currentUser?.displayName || '' })
+    .then(r => { if(r.success){document.getElementById('pr-form-area').innerHTML='';showResult('✅ อนุมัติแล้ว — สร้างใบสั่งซื้อ '+r.itemCount+' รายการ',true);loadPRs();}else{alert(r.error);if(btn){btn.disabled=false;btn.textContent='✔ อนุมัติใบขอสั่ง';}} })
+    .catch(e => { alert('❌ '+e.message); if(btn){btn.disabled=false;btn.textContent='✔ อนุมัติใบขอสั่ง';} });
+}
+
+function deletePR(prNo) {
+  if (!confirm('ลบใบขอสั่ง '+prNo+' ?')) return;
+  callAPI('deletePurchaseRequest', { prNo }).then(r => { if(r.success){showResult('ลบแล้ว',true);loadPRs();}else alert(r.error); }).catch(e => alert('❌ '+e.message));
+}
+
+// ════════════════════════════════════════════════════
+//  PURCHASE ORDER — ใบสั่งซื้อ
+// ════════════════════════════════════════════════════
+let allPOs = [];
+
+function loadPOs() {
+  document.getElementById('po-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+  const status = document.getElementById('po-status-filter')?.value || 'ทั้งหมด';
+  callAPI('getPurchaseOrders', { statusFilter: status })
+    .then(res => { allPOs = res || []; renderPOs(); })
+    .catch(e => { document.getElementById('po-list').innerHTML = '<p style="color:#dc2626">❌ '+e.message+'</p>'; });
+}
+
+function renderPOs() {
+  const el = document.getElementById('po-list');
+  const isAdmin = currentUser?.role === 'admin';
+  if (!allPOs.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่มีรายการ</p>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:800px">
+      <thead><tr style="background:#be123c;color:#fff">
+        <th style="padding:6px 8px">รหัส</th><th style="padding:6px 8px">ชื่อสินค้า</th>
+        <th style="padding:6px 8px;text-align:center">จำนวน</th><th style="padding:6px 8px">หน่วย</th>
+        <th style="padding:6px 8px">บริษัท</th><th style="padding:6px 8px">ขนส่ง</th>
+        <th style="padding:6px 8px;text-align:center">สถานะ</th>
+        <th style="padding:6px 8px">วันที่สั่ง</th>
+        ${isAdmin?'<th style="padding:6px 8px">จัดการ</th>':''}
+      </tr></thead>
+      <tbody>${allPOs.map(po => {
+        const statusCls = po.status==='สั่งแล้ว'?'background:#dcfce7;color:#16a34a':po.status==='รอสั่งซื้อ'?'background:#fef3c7;color:#92400e':'background:#ede9fe;color:#7c3aed';
+        return `<tr style="border-bottom:1px solid #e5e7eb">
+          <td style="padding:5px 8px;font-size:10px;font-weight:700">${po.code}</td>
+          <td style="padding:5px 8px">${po.name}</td>
+          <td style="padding:5px 8px;text-align:center;font-weight:700">${po.qty}</td>
+          <td style="padding:5px 8px">${po.unit}</td>
+          <td style="padding:5px 8px">${po.supplier||'<span style="color:#9ca3af">—</span>'}</td>
+          <td style="padding:5px 8px">${po.transport||'<span style="color:#9ca3af">—</span>'}</td>
+          <td style="padding:5px 8px;text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;${statusCls}">${po.status}</span></td>
+          <td style="padding:5px 8px;font-size:10px">${po.orderedDate||'—'}</td>
+          ${isAdmin?`<td style="padding:5px 8px">
+            ${po.status==='รอสั่งซื้อ'?`<button onclick="showPOEditForm(${po.row},'${po.code}','${po.name}',${po.qty},'${po.unit}','${po.supplier||''}','${po.transport||''}')" style="padding:3px 8px;background:#eff6ff;color:#1a56db;border:1px solid #93c5fd;border-radius:4px;font-size:10px;cursor:pointer">✏️</button>
+            <button onclick="markPOOrdered(${po.row})" style="padding:3px 8px;background:#dcfce7;color:#16a34a;border:1px solid #86efac;border-radius:4px;font-size:10px;cursor:pointer">✔ สั่งแล้ว</button>`:''}
+          </td>`:''}
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>
+  <div style="font-size:11px;color:#6b7280;margin-top:6px;text-align:right">รวม ${allPOs.length} รายการ</div>`;
+}
+
+function showPOEditForm(rowNum, code, name, qty, unit, supplier, transport) {
+  const area = document.getElementById('po-form-area');
+  const supOpts = allSuppliers.map(s => `<option ${s.name===supplier?'selected':''}>${s.name}</option>`).join('');
+  const transOpts = TRANSPORT_LIST.map(t => `<option ${t===transport?'selected':''}>${t}</option>`).join('');
+  area.innerHTML = `
+    <div style="background:#fff1f2;border:1.5px solid #fda4af;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;color:#be123c;margin-bottom:10px">✏️ แก้ไข: ${code} — ${name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><label style="font-size:12px">จำนวนสั่งซื้อ</label>
+          <input id="poe-qty" type="number" min="0" value="${qty}" style="text-align:center"></div>
+        <div><label style="font-size:12px">บริษัทที่สั่ง</label>
+          <select id="poe-sup" style="font-size:13px"><option value="">-- เลือก --</option>${supOpts}<option value="__other">อื่นๆ (พิมพ์เอง)</option></select>
+          <input id="poe-sup-other" class="hidden" placeholder="ระบุชื่อบริษัท" style="font-size:12px;margin-top:4px"></div>
+        <div><label style="font-size:12px">ขนส่งที่ใช้</label>
+          <select id="poe-trans" style="font-size:13px"><option value="">-- เลือก --</option>${transOpts}<option value="__other">อื่นๆ โปรดระบุ</option></select>
+          <input id="poe-trans-other" class="hidden" placeholder="ระบุชื่อขนส่ง" style="font-size:12px;margin-top:4px"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="savePOEdit(${rowNum})" style="padding:9px 18px;background:#be123c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💾 บันทึก</button>
+        <button onclick="document.getElementById('po-form-area').innerHTML=''" style="padding:9px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+  // toggle "อื่นๆ" input
+  document.getElementById('poe-sup').onchange = function() {
+    document.getElementById('poe-sup-other').classList.toggle('hidden', this.value !== '__other');
+  };
+  document.getElementById('poe-trans').onchange = function() {
+    document.getElementById('poe-trans-other').classList.toggle('hidden', this.value !== '__other');
+  };
+  // โหลด suppliers ถ้ายังไม่มี
+  if (!allSuppliers.length) loadSuppliers();
+}
+
+function savePOEdit(rowNum) {
+  let sup = document.getElementById('poe-sup')?.value || '';
+  if (sup === '__other') sup = document.getElementById('poe-sup-other')?.value.trim() || '';
+  let trans = document.getElementById('poe-trans')?.value || '';
+  if (trans === '__other') trans = document.getElementById('poe-trans-other')?.value.trim() || '';
+  const qty = Number(document.getElementById('poe-qty')?.value || 0);
+  callAPI('updatePurchaseOrder', { rowNum, qty, supplier: sup, transport: trans })
+    .then(r => { if(r.success){document.getElementById('po-form-area').innerHTML='';showResult('✅ บันทึกแล้ว',true);loadPOs();}else alert(r.error); })
+    .catch(e => alert('❌ '+e.message));
+}
+
+function markPOOrdered(rowNum) {
+  if (!confirm('ยืนยันว่าสั่งซื้อแล้ว?')) return;
+  callAPI('markPOOrdered', { rowNum, orderedBy: currentUser?.displayName || '' })
+    .then(r => { if(r.success){showResult('✅ อัปเดตสถานะ: สั่งแล้ว',true);loadPOs();}else alert(r.error); })
+    .catch(e => alert('❌ '+e.message));
 }
 
 function closePreview() { document.getElementById('preview-modal').classList.remove('show'); }
