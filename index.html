@@ -1658,7 +1658,7 @@ function approve(type) {
         markDraftApproved();
         showResult(`✅ อนุมัติสำเร็จ ${r.results.length} รายการ — ${docNo}`, true);
         loadCache(); loadDocs();
-      } else { alert('ผิดพลาด:\n'+r.errors.join('\n')); _setApproveLoading(false); }
+      } else { alert('ผิดพลาด:\n'+(r.errors?r.errors.join('\n'):r.error||'ไม่ทราบสาเหตุ')); _setApproveLoading(false); }
     })
     .catch(e => { alert('❌ '+e.message); _setApproveLoading(false); });
 }
@@ -1687,7 +1687,7 @@ function approveTransfer() {
         _markApproved(); markDraftApproved();
         showResult(`✅ ย้ายสำเร็จ ${r.results.length} รายการ — ${docNo}`, true);
         loadCache(); loadDocs();
-      } else { alert('ผิดพลาด:\n'+r.errors.join('\n')); _setApproveLoading(false); }
+      } else { alert('ผิดพลาด:\n'+(r.errors?r.errors.join('\n'):r.error||'ไม่ทราบสาเหตุ')); _setApproveLoading(false); }
     })
     .catch(e => { alert('❌ '+e.message); _setApproveLoading(false); });
 }
