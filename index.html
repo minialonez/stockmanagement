@@ -267,6 +267,9 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     <label>รหัสผ่าน</label>
     <input id="lp" type="password" placeholder="password"
       onkeydown="if(event.key==='Enter')doLogin()">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:400;cursor:pointer">
+      <input type="checkbox" id="lremember" style="width:16px;height:16px;margin:0"> จดจำการเข้าสู่ระบบ
+    </label>
     <button class="btn-login" onclick="doLogin()">🔐 เข้าสู่ระบบ</button>
     <div id="lerr" class="login-error hidden"></div>
   </div>
@@ -612,8 +615,57 @@ let currentDocOp = '', currentDocNote = '';
 let allDocs = [], docFilter = 'all';
 
 // ════════════════════════════════════════════════════
-//  LOGIN / LOGOUT
+//  SESSION REMEMBER
 // ════════════════════════════════════════════════════
+const _SESSION_KEY = 'jkn_stock_session';
+
+function _saveSession(u, p) {
+  try { localStorage.setItem(_SESSION_KEY, btoa(unescape(encodeURIComponent(JSON.stringify({ u, p, t: Date.now() }))))); } catch(e) {}
+}
+function _loadSession() {
+  try {
+    const raw = localStorage.getItem(_SESSION_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (Date.now() - obj.t > 30 * 24 * 60 * 60 * 1000) { _clearSession(); return null; }
+    return obj;
+  } catch(e) { return null; }
+}
+function _clearSession() {
+  try { localStorage.removeItem(_SESSION_KEY); } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════
+//  AUTO-LOGIN
+// ════════════════════════════════════════════════════
+function tryAutoLogin() {
+  const session = _loadSession();
+  if (!session || !API_URL) return;
+  const errEl = document.getElementById('lerr');
+  errEl.textContent = '⏳ กำลังเข้าสู่ระบบอัตโนมัติ...';
+  errEl.classList.remove('hidden');
+  document.getElementById('lu').value = session.u;
+
+  callAPI('login', { username: session.u, password: session.p })
+    .then(function(res) {
+      if (res && res.success) {
+        currentUser = res;
+        const loginEl = document.getElementById('login-screen');
+        const appEl   = document.getElementById('app');
+        loginEl.classList.add('fade-out');
+        appEl.classList.remove('hidden');
+        setTimeout(() => { loginEl.style.display = 'none'; appEl.classList.add('visible'); initApp(); }, 400);
+      } else {
+        _clearSession();
+        errEl.classList.add('hidden');
+        document.getElementById('lu').value = '';
+      }
+    })
+    .catch(function() { _clearSession(); errEl.classList.add('hidden'); });
+}
+
+document.addEventListener('DOMContentLoaded', tryAutoLogin);
+
 // ════════════════════════════════════════════════════
 //  LOGIN / LOGOUT
 // ════════════════════════════════════════════════════
@@ -630,15 +682,13 @@ function doLogin() {
       if (!res) { setLoginErr('❌ ไม่ได้รับข้อมูลจาก server — ตรวจสอบ Sheet USERS'); return; }
       if (res.success) {
         currentUser = res;
+        if (document.getElementById('lremember')?.checked) _saveSession(u, p);
+        else _clearSession();
         const loginEl = document.getElementById('login-screen');
         const appEl   = document.getElementById('app');
         loginEl.classList.add('fade-out');
         appEl.classList.remove('hidden');
-        setTimeout(() => {
-          loginEl.style.display = 'none';
-          appEl.classList.add('visible');
-          initApp();
-        }, 400);
+        setTimeout(() => { loginEl.style.display = 'none'; appEl.classList.add('visible'); initApp(); }, 400);
       } else {
         setLoginErr(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       }
@@ -653,6 +703,7 @@ function setLoginErr(msg) {
 }
 function doLogout() {
   currentUser = null; DB = []; DB_READY = false;
+  _clearSession();
   const appEl   = document.getElementById('app');
   const loginEl = document.getElementById('login-screen');
   appEl.classList.remove('visible');
@@ -662,6 +713,7 @@ function doLogout() {
     loginEl.classList.remove('fade-out');
     document.getElementById('lu').value = '';
     document.getElementById('lp').value = '';
+    document.getElementById('lremember').checked = false;
     document.getElementById('lerr').classList.add('hidden');
   }, 350);
 }
