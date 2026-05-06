@@ -358,10 +358,9 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <span style="font-weight:700;font-size:14px;flex:1">📦 จัดการสินค้า</span>
-        <input id="prod-search" placeholder="ค้นหารหัส / ชื่อ / โกดัง..." oninput="renderProductList()"
+        <input id="prod-search" placeholder="ค้นหา รหัส ชื่อ โกดัง บาร์โค้ด... (เว้นวรรคระหว่างคำได้)" oninput="renderProductList()"
           style="width:200px;font-size:12px;padding:6px 10px;margin:0">
         <button onclick="showProductForm(null)" style="padding:6px 13px;background:#16a34a;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ เพิ่มสินค้า</button>
-        <button onclick="showAdjustForm(null)" style="padding:6px 13px;background:#0369a1;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🔧 ปรับสต็อก</button>
         <button onclick="loadProducts()" style="padding:6px 11px;background:#eff6ff;color:#1a56db;border:1px solid #93c5fd;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
       </div>
       <div id="product-form-area"></div>
@@ -1802,9 +1801,14 @@ function renderProductList() {
   const el  = document.getElementById('product-list');
   const canSeeDetail = _canSeeWarehouseDetail();
 
-  let prods = q
-    ? allProducts.filter(p => p.code.toUpperCase().includes(q) || p.name.toUpperCase().includes(q) || p.warehouse.toUpperCase().includes(q) || (p.barcode||'').toUpperCase().includes(q))
-    : allProducts;
+  let prods = allProducts;
+  if (q) {
+    const tokens = q.split(/\s+/).filter(Boolean);
+    prods = allProducts.filter(p => {
+      const hay = [p.code, p.name, p.warehouse, p.barcode||'', p.unit||'', p.floor||''].join(' ').toUpperCase();
+      return tokens.every(t => hay.includes(t));
+    });
+  }
 
   if (!prods.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบสินค้า</p>'; return; }
 
@@ -1936,65 +1940,7 @@ function deleteProduct(code, warehouse) {
 //  ADJUST STOCK — ปรับสต็อก
 // ════════════════════════════════════════════════════
 function showAdjustForm(product) {
-  const area = document.getElementById('product-form-area');
-
-  // ถ้าส่ง product มา → ข้ามไปแสดงฟอร์มปรับเลย
-  if (product) { _renderAdjustPanel(product); return; }
-
-  // ถ้าไม่ส่ง → แสดงฟอร์มค้นหาก่อน
-  area.innerHTML = `
-    <div style="background:#e0f2fe;border:2px solid #0369a1;border-radius:10px;padding:14px;margin-bottom:12px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#0369a1">🔧 ปรับสต็อก — ค้นหาสินค้า</div>
-      <div style="margin-bottom:8px">
-        <span class="field-label" style="color:#0369a1">พิมพ์รหัสสินค้า / ชื่อ / บาร์โค้ด</span>
-        <input id="adj-search-q" placeholder="ค้นหา..." oninput="lookupAdjustItem()" autofocus
-          style="font-size:14px;padding:10px 12px;margin:0;border:2px solid #7dd3fc;border-radius:8px">
-      </div>
-      <div id="adj-search-results"></div>
-      <div style="margin-top:8px;text-align:right">
-        <button onclick="document.getElementById('product-form-area').innerHTML=''" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
-      </div>
-    </div>`;
-  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setTimeout(() => document.getElementById('adj-search-q')?.focus(), 200);
-}
-
-function lookupAdjustItem() {
-  const q = (document.getElementById('adj-search-q')?.value || '').trim();
-  const el = document.getElementById('adj-search-results');
-  if (!el) return;
-
-  if (q.length < 2) { el.innerHTML = ''; return; }
-  if (!DB_READY) { el.innerHTML = '<p style="color:#6b7280;font-size:12px">⏳ กำลังโหลดข้อมูล...</p>'; return; }
-
-  const results = filterDB(q, '').slice(0, 15);
-  if (!results.length) {
-    el.innerHTML = '<p style="color:#6b7280;font-size:12px;margin-top:6px">ไม่พบสินค้า</p>';
-    return;
-  }
-
-  el.innerHTML = results.map((item, idx) => {
-    const cls = item.stock <= 0 ? 'zero' : item.stock <= 10 ? 'low' : 'ok';
-    return `<div onclick="selectAdjustItem(${idx})" style="padding:8px 10px;cursor:pointer;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:8px;transition:background .15s"
-      onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#fff'">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:12px;color:#0369a1">${item.code}${item.barcode ? ' <span style="color:#6b7280;font-weight:400">🔖' + item.barcode + '</span>' : ''}</div>
-        <div style="font-size:12px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.name}</div>
-        <div style="font-size:10px;color:#7c3aed">📍 ${item.warehouse}${item.floor ? ' · ' + item.floor : ''} · ${item.unit}</div>
-      </div>
-      <span class="prod-stock ${cls}" style="flex-shrink:0">${item.stock} ${item.unit}</span>
-    </div>`;
-  }).join('');
-  window._adjSearchResults = results;
-}
-
-function selectAdjustItem(idx) {
-  const item = window._adjSearchResults?.[idx];
-  if (!item) return;
-  _renderAdjustPanel(item);
-}
-
-function _renderAdjustPanel(p) {
+  const p = product || {};
   const area = document.getElementById('product-form-area');
   area.innerHTML = `
     <div style="background:#e0f2fe;border:2px solid #0369a1;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -2047,7 +1993,6 @@ function _renderAdjustPanel(p) {
 
       <div style="display:flex;gap:8px">
         <button id="adj-confirm-btn" onclick="confirmAdjust('${p.code}','${p.warehouse}','${p.floor||''}')" style="flex:1;padding:11px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✔ ยืนยันปรับสต็อก</button>
-        <button onclick="showAdjustForm(null)" style="padding:11px 16px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:8px;font-size:13px;cursor:pointer">🔍 ค้นหาใหม่</button>
         <button onclick="document.getElementById('product-form-area').innerHTML=''" style="padding:11px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
       </div>
     </div>`;
