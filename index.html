@@ -1941,6 +1941,7 @@ function deleteProduct(code, warehouse) {
 // ════════════════════════════════════════════════════
 function showAdjustForm(product) {
   const p = product || {};
+  window._adjProduct = p; // เก็บไว้ใน variable กันปัญหาอักขระพิเศษ
   const area = document.getElementById('product-form-area');
   area.innerHTML = `
     <div style="background:#e0f2fe;border:2px solid #0369a1;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -1992,7 +1993,7 @@ function showAdjustForm(product) {
       </div>
 
       <div style="display:flex;gap:8px">
-        <button id="adj-confirm-btn" onclick="confirmAdjust('${p.code}','${p.warehouse}','${p.floor||''}')" style="flex:1;padding:11px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✔ ยืนยันปรับสต็อก</button>
+        <button id="adj-confirm-btn" onclick="confirmAdjust()" style="flex:1;padding:11px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✔ ยืนยันปรับสต็อก</button>
         <button onclick="document.getElementById('product-form-area').innerHTML=''" style="padding:11px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
       </div>
     </div>`;
@@ -2011,7 +2012,10 @@ function updateAdjPreview(curStock) {
   }
 }
 
-function confirmAdjust(code, warehouse, floor) {
+function confirmAdjust() {
+  const p = window._adjProduct;
+  if (!p || !p.code) { alert('ไม่พบข้อมูลสินค้า'); return; }
+  const code = p.code, warehouse = p.warehouse, floor = p.floor || '';
   const newQty = Number(document.getElementById('adj-newqty')?.value || 0);
   const reason = document.getElementById('adj-reason')?.value.trim() || '';
   if (!reason) { alert('กรุณาระบุเหตุผลในการปรับสต็อก'); return; }
@@ -3130,6 +3134,7 @@ function saveScrap(isNew) {
 // ═══ ตัดสต็อก ═══
 function showCutScrapForm(item) {
   const s = item || {};
+  window._cutScrapItem = s; // เก็บไว้กัน special chars
   const area = document.getElementById('scrap-form-area');
   area.innerHTML = `
     <div style="background:#fef3c7;border:2px solid #d97706;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -3174,7 +3179,7 @@ function showCutScrapForm(item) {
       </div>
 
       <div style="display:flex;gap:8px">
-        <button id="cut-confirm-btn" onclick="confirmCutScrap('${s.code}')" style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✂️ ยืนยันตัดสต็อก</button>
+        <button id="cut-confirm-btn" onclick="confirmCutScrap()" style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✂️ ยืนยันตัดสต็อก</button>
         <button onclick="document.getElementById('scrap-form-area').innerHTML=''" style="padding:11px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
       </div>
     </div>`;
@@ -3207,7 +3212,10 @@ function updateCutPreview(currentStock) {
   }
 }
 
-function confirmCutScrap(code) {
+function confirmCutScrap() {
+  const scrapItem = window._cutScrapItem;
+  if (!scrapItem || !scrapItem.code) { alert('ไม่พบข้อมูลสินค้า'); return; }
+  const code = scrapItem.code;
   const cutQty = Number(document.getElementById('cut-qty')?.value || 0);
   const cutNote = document.getElementById('cut-note')?.value.trim() || '';
   if (cutQty <= 0) { alert('กรุณากรอกจำนวนที่ตัด'); return; }
