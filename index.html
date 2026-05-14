@@ -842,8 +842,11 @@ function _buildDB(res) {
 function _onCacheOK(res) {
   const badge = document.getElementById('cache-badge');
   DB = _buildDB(res); DB_READY = true;
+  allProducts = DB; // sync สำหรับ tab สินค้า
   badge.textContent = '✅ ' + DB.length + ' รายการ';
   badge.className   = 'cache-badge ready'; badge.onclick = null;
+  // ถ้าอยู่หน้าสินค้าอยู่ render ใหม่
+  if (!document.getElementById('tab-products')?.classList.contains('hidden')) renderProductList();
 }
 function _onCacheFail() {
   const badge = document.getElementById('cache-badge');
@@ -1790,10 +1793,16 @@ function markDraftApproved() {
 let allProducts = [];
 
 function loadProducts() {
-  document.getElementById('product-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
-  callAPI('getProductsList')
-    .then(res => { allProducts = (res && res.products) || []; renderProductList(); })
-    .catch(e => { document.getElementById('product-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>'; });
+  // ใช้ DB cache ที่โหลดมาแล้ว — ไม่ต้อง API call ซ้ำ (เร็วขึ้นมาก)
+  if (DB_READY && DB.length > 0) {
+    allProducts = DB;
+    renderProductList();
+  } else {
+    document.getElementById('product-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+    callAPI('getAllItems')
+      .then(res => { allProducts = res || []; renderProductList(); })
+      .catch(e => { document.getElementById('product-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>'; });
+  }
 }
 
 function renderProductList() {
@@ -1813,23 +1822,21 @@ function renderProductList() {
   if (!prods.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบสินค้า</p>'; return; }
 
   if (canSeeDetail) {
-    // === แสดงรายละเอียดแยกตามโกดัง (เหมือนเดิม) ===
-    el.innerHTML = prods.map(p => {
+    el.innerHTML = prods.map((p, idx) => {
       const cls = p.stock <= 0 ? 'zero' : p.stock <= 10 ? 'low' : 'ok';
       return `<div class="prod-row">
         <div class="prod-row-info">
           <div class="prod-row-code">${p.code}${p.barcode?' <span style="color:#6b7280;font-weight:400">🔖'+p.barcode+'</span>':''}</div>
           <div class="prod-row-name">${p.name}</div>
-          <div class="prod-row-sub">📍 ${p.warehouse} ${p.floor} · ${p.unit}${p.unitFactor>1?' · ×'+p.unitFactor:''}</div>
+          <div class="prod-row-sub">📍 ${p.warehouse} ${p.floor||''} · ${p.unit}${p.unitFactor>1?' · ×'+p.unitFactor:''}</div>
         </div>
         <span class="prod-stock ${cls}">${p.stock} ${p.unit}</span>
-        <button style="padding:4px 8px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:5px;font-size:10px;cursor:pointer" onclick="showAdjustForm(${JSON.stringify(p).split('"').join('&quot;')})">🔧</button>
-        <button class="btn-edit-prod" onclick="showProductForm(${JSON.stringify(p).split('"').join('&quot;')})">✏️</button>
-        <button class="btn-delete-doc" onclick="deleteProduct('${p.code}','${p.warehouse}')">🗑</button>
+        <button style="padding:4px 8px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:5px;font-size:10px;cursor:pointer" onclick="_prodAdjust(${idx})">🔧</button>
+        <button class="btn-edit-prod" onclick="_prodEdit(${idx})">✏️</button>
+        <button class="btn-delete-doc" onclick="_prodDelete(${idx})">🗑</button>
       </div>`;
     }).join('');
   } else {
-    // === แสดงแบบรวม — ไม่เปิดเผยว่าอยู่โกดังไหน ===
     const agg = _aggregateByCode(prods);
     el.innerHTML = agg.map(p => {
       const cls = p.stock <= 0 ? 'zero' : p.stock <= 10 ? 'low' : 'ok';
@@ -1844,6 +1851,15 @@ function renderProductList() {
       </div>`;
     }).join('');
   }
+}
+
+// Helper: เรียกจาก onclick ด้วย index — กัน special chars ใน inline string
+function _prodAdjust(idx) { showAdjustForm(allProducts[idx]); }
+function _prodEdit(idx)   { showProductForm(allProducts[idx]); }
+function _prodDelete(idx)  {
+  const p = allProducts[idx];
+  if (!p) return;
+  deleteProduct(p.code, p.warehouse);
 }
 
 function showProductForm(product, prefill) {
@@ -2014,8 +2030,7 @@ function updateAdjPreview(curStock) {
 
 function confirmAdjust() {
   const p = window._adjProduct;
-  if (!p || !p.code) { alert('ไม่พบข้อมูลสินค้า'); return; }
-  const code = p.code, warehouse = p.warehouse, floor = p.floor || '';
+  if (!p || !p.rowIndex) { alert('ไม่พบข้อมูลสินค้า — กรุณาโหลดใหม่'); return; }
   const newQty = Number(document.getElementById('adj-newqty')?.value || 0);
   const reason = document.getElementById('adj-reason')?.value.trim() || '';
   if (!reason) { alert('กรุณาระบุเหตุผลในการปรับสต็อก'); return; }
@@ -2023,13 +2038,13 @@ function confirmAdjust() {
   const btn = document.getElementById('adj-confirm-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังปรับ...'; }
 
-  callAPI('adjustStock', { code, warehouse, floor, newQty, reason, operator: currentUser?.displayName || '' })
+  callAPI('adjustStock', { rowNum: p.rowIndex, newQty, reason, operator: currentUser?.displayName || '' })
     .then(r => {
       if (r.success) {
         document.getElementById('product-form-area').innerHTML = '';
         const sign = r.diff > 0 ? '+' : '';
-        showResult(`🔧 ปรับสต็อก "${code}" — ${r.before} → ${r.after} (${sign}${r.diff})`, true);
-        loadProducts(); loadCache();
+        showResult(`🔧 ปรับสต็อก "${r.code}" — ${r.before} → ${r.after} (${sign}${r.diff})`, true);
+        loadCache(); // refresh cache
       } else {
         alert(r.error);
         if (btn) { btn.disabled = false; btn.textContent = '✔ ยืนยันปรับสต็อก'; }
