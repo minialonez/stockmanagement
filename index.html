@@ -1980,6 +1980,7 @@ function showAdjustForm(product) {
           <div style="font-size:13px;padding:6px 0">${p.unit}</div>
         </div>
       </div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:8px">🔑 UUID: <code style="background:#f3f4f6;padding:1px 6px;border-radius:3px">${p.uuid||'—'}</code></div>
 
       <div style="background:#fff;border:1.5px solid #7dd3fc;border-radius:8px;padding:12px;margin-bottom:10px">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
@@ -2030,7 +2031,7 @@ function updateAdjPreview(curStock) {
 
 function confirmAdjust() {
   const p = window._adjProduct;
-  if (!p || !p.rowIndex) { alert('ไม่พบข้อมูลสินค้า — กรุณาโหลดใหม่'); return; }
+  if (!p || !p.uuid) { alert('ไม่พบ UUID สินค้า — กรุณากดรีเฟรช 🔄 แล้วลองใหม่'); return; }
   const newQty = Number(document.getElementById('adj-newqty')?.value || 0);
   const reason = document.getElementById('adj-reason')?.value.trim() || '';
   if (!reason) { alert('กรุณาระบุเหตุผลในการปรับสต็อก'); return; }
@@ -2038,12 +2039,12 @@ function confirmAdjust() {
   const btn = document.getElementById('adj-confirm-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังปรับ...'; }
 
-  callAPI('adjustStock', { rowNum: p.rowIndex, newQty, reason, operator: currentUser?.displayName || '' })
+  callAPI('adjustStock', { uuid: p.uuid, newQty, reason, operator: currentUser?.displayName || '' })
     .then(r => {
       if (r.success) {
         document.getElementById('product-form-area').innerHTML = '';
         const sign = r.diff > 0 ? '+' : '';
-        showResult(`🔧 ปรับสต็อก "${r.code}" — ${r.before} → ${r.after} (${sign}${r.diff})`, true);
+        showResult(`🔧 ปรับสต็อก "${r.code}" [${r.uuid}] — ${r.before} → ${r.after} (${sign}${r.diff})`, true);
         loadCache(); // refresh cache
       } else {
         alert(r.error);
