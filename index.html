@@ -1822,6 +1822,7 @@ function renderProductList() {
   if (!prods.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่พบสินค้า</p>'; return; }
 
   if (canSeeDetail) {
+    window._filteredProducts = prods; // เก็บผลค้นหาไว้ให้ onclick ใช้
     el.innerHTML = prods.map((p, idx) => {
       const cls = p.stock <= 0 ? 'zero' : p.stock <= 10 ? 'low' : 'ok';
       return `<div class="prod-row">
@@ -1854,10 +1855,10 @@ function renderProductList() {
 }
 
 // Helper: เรียกจาก onclick ด้วย index — กัน special chars ใน inline string
-function _prodAdjust(idx) { showAdjustForm(allProducts[idx]); }
-function _prodEdit(idx)   { showProductForm(allProducts[idx]); }
+function _prodAdjust(idx) { showAdjustForm(window._filteredProducts[idx]); }
+function _prodEdit(idx)   { showProductForm(window._filteredProducts[idx]); }
 function _prodDelete(idx)  {
-  const p = allProducts[idx];
+  const p = window._filteredProducts[idx];
   if (!p) return;
   deleteProduct(p.code, p.warehouse);
 }
