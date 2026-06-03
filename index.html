@@ -1347,10 +1347,9 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
   });
   let rowNum = 1;
   const tableRows = Object.entries(grouped).map(([wh, items]) => {
-    const hdr = `<tr><td colspan="9" style="background:#1a56db !important;color:#fff;font-weight:800;font-size:15px;padding:10px 13px;letter-spacing:0.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">📦 โกดัง: ${wh}</td></tr>`;
+    const hdr = `<tr><td colspan="8" style="background:#1a56db !important;color:#fff;font-weight:800;font-size:15px;padding:10px 13px;letter-spacing:0.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">📦 โกดัง: ${wh}</td></tr>`;
     return hdr + items.map(item => {
       const factor   = Number(item.factor) || 1;
-      const pieces   = item.qty * factor;
       return `<tr id="drow-${item.idx}">
         <td style="text-align:center">${rowNum++}</td>
         <td style="font-size:11px">${item.code}</td>
@@ -1362,10 +1361,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
             data-remark="${(item.remark||'').replace(/"/g,'&quot;')}"
             ${isApproved?'readonly':''}>
         </td>
-        <td style="text-align:center">${item.unit}</td>
-        <td style="text-align:center">
-          <b>${pieces}</b><small style="color:#6b7280;font-size:9px"> ชิ้น</small>
-        </td>
+        <td style="text-align:center">${item.unit}${factor>1?' ('+factor+')':''}</td>
         <td style="text-align:center">${item.floor}</td>
         <td>
           <input type="text" id="dremark-${item.idx}" value="${(item.remark||'').replace(/"/g,'&quot;')}"
@@ -1403,8 +1399,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
       <th style="width:22px;text-align:center">ที่</th>
       <th style="width:95px">รหัสสินค้า</th>
       <th>ชื่อสินค้า</th><th style="width:65px;text-align:center">จำนวน</th>
-      <th style="width:32px;text-align:center">หน่วย</th>
-      <th style="width:55px;text-align:center">จำนวนชิ้น</th>
+      <th style="width:65px;text-align:center">หน่วย (อัตรา)</th>
       <th style="width:44px;text-align:center">ชั้น/ห้อง</th>
       <th style="width:85px">หมายเหตุรายการ</th>
       <th style="width:24px"></th>
@@ -3450,8 +3445,7 @@ function confirmAddDocItem() {
           data-unit="${unit}" data-floor="${floor}" data-factor="${factor}"
           data-remark="${remark.replace(/"/g,'&quot;')}">
       </td>
-      <td style="text-align:center">${unit}</td>
-      <td style="text-align:center"><b>${pieces}</b><small style="color:#6b7280;font-size:9px"> ชิ้น</small></td>
+      <td style="text-align:center">${unit}${factor>1?' ('+factor+')':''}</td>
       <td style="text-align:center">${floor}</td>
       <td><input type="text" id="dremark-${idx}" value="${remark}" placeholder="—"
         style="width:100%;font-size:10px;padding:3px 5px;border:1px solid #d1d5db;border-radius:4px;margin:0"></td>
