@@ -292,9 +292,22 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     <div class="card">
       <label>ผู้เบิก</label><input id="op-w" placeholder="ชื่อพนักงาน">
       <label>หมายเหตุ</label><input id="note-w" placeholder="โครงการ / ลูกค้า">
-      <div id="rows-w" style="margin-top:8px"></div>
-      <button class="btn-add-wh" onclick="addWarehouseGroup('w')">📦 เพิ่มโกดัง</button>
-      <button class="btn btn-preview" onclick="openPreview('เบิก')" style="margin-top:10px">📄 ดูตัวอย่างเอกสาร</button>
+
+      <label style="margin-top:10px;color:#1e40af">🔍 ค้นหาสินค้าเพื่อเพิ่มลงใบเบิก</label>
+      <div style="position:relative">
+        <input id="w-search" placeholder="พิมพ์ รหัส / ชื่อ / บาร์โค้ด..." oninput="wSearch()" autocomplete="off"
+          style="border:2px solid #93c5fd">
+        <div id="w-results" style="display:none;margin-top:6px;border:1.5px solid #93c5fd;border-radius:10px;overflow:hidden"></div>
+      </div>
+
+      <div id="w-items" style="margin-top:14px"></div>
+      <div id="w-empty" style="text-align:center;padding:30px 15px;color:#9ca3af">
+        <div style="font-size:36px;margin-bottom:6px">📭</div>
+        <div style="font-size:13px;font-weight:600">ยังไม่มีรายการ</div>
+        <div style="font-size:12px;margin-top:3px">ค้นหาสินค้าด้านบนเพื่อเพิ่ม</div>
+      </div>
+
+      <button class="btn btn-preview" onclick="wOpenPreview()" style="margin-top:12px">📄 ดูตัวอย่างเอกสาร</button>
     </div>
   </div>
 
@@ -731,7 +744,6 @@ function initApp() {
   });
   buildTabs();
   ['op-w','op-r','op-t'].forEach(id => { document.getElementById(id).value = currentUser.displayName; });
-  addWarehouseGroup('w');
   addWarehouseGroup('r');
   addTransferItem();
   loadCache();
@@ -1265,6 +1277,182 @@ function collectItems(s) {
 }
 
 // ════════════════════════════════════════════════════
+//  WITHDRAW (เบิก) — Search-based flow
+// ════════════════════════════════════════════════════
+let wDocItems = [];   // { code, name, barcode, warehouse, floor, unit, factor, stock, qty, _id }
+let _wNextId = 1;
+let _wResults = [];   // ผลค้นหาปัจจุบัน
+
+function wSearch() {
+  const q  = (document.getElementById('w-search')?.value || '').trim();
+  const el = document.getElementById('w-results');
+  if (!el) return;
+
+  if (q.length < 2) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  if (!DB_READY)    { el.style.display='block'; el.innerHTML = '<div style="padding:10px;font-size:12px;color:#6b7280">⏳ กำลังโหลดข้อมูล...</div>'; return; }
+
+  // ค้นหาแบบ token (เว้นวรรคได้)
+  const tokens = q.toUpperCase().split(/\s+/).filter(Boolean);
+  const matches = DB.filter(it => {
+    const hay = [it.code, it.name, it.barcode||'', it.warehouse, it.unit||'', it.floor||''].join(' ').toUpperCase();
+    return tokens.every(t => hay.includes(t));
+  }).slice(0, 20);
+
+  _wResults = matches;
+
+  // ไม่พบ → เสนอสร้างใหม่
+  if (!matches.length) {
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div style="padding:7px 12px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e">ไม่พบ "${_esc(q)}" ในสต็อก</div>
+      <div onclick="wAddNew('${_esc(q).replace(/'/g,'')}')" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:12px;color:#1e40af">+ สร้างรายการใหม่: ${_esc(q)}</div>
+          <div style="font-size:11px;color:#6b7280">เพิ่มสินค้าที่ยังไม่มีในสต็อก แล้วเลือกโกดังเอง</div>
+        </div>
+        <span style="color:#94a3b8">→</span>
+      </div>`;
+    return;
+  }
+
+  // นับจำนวนรหัส/โกดัง
+  const codes = {};
+  matches.forEach(m => { codes[m.code] = (codes[m.code]||0) + 1; });
+  const uniqueCodes = Object.keys(codes);
+  const singleHit = uniqueCodes.length === 1 && matches.length === 1;
+
+  const hint = singleHit
+    ? `<div style="padding:7px 12px;font-size:11px;font-weight:700;background:#f0fdf4;color:#166534">✓ พบ 1 รายการ — กดเพื่อเพิ่มลงใบเบิกทันที</div>`
+    : `<div style="padding:7px 12px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e">⚠ พบ ${matches.length} รายการ — เลือกว่าจะเบิกจากโกดังไหน</div>`;
+
+  el.style.display = 'block';
+  el.innerHTML = hint + matches.map((it, idx) => {
+    const cls = it.stock<=0?'stk-zero':it.stock<=10?'stk-low':'stk-ok';
+    const bg  = it.stock<=0?'#fee2e2':it.stock<=10?'#fef9c3':'#dcfce7';
+    const fg  = it.stock<=0?'#991b1b':it.stock<=10?'#854d0e':'#166534';
+    return `<div onclick="wAddItem(${idx})" style="padding:10px 12px;cursor:pointer;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:12px;color:#1e40af">${it.code}${it.barcode?' <span style="color:#94a3b8;font-weight:400">🔖'+it.barcode+'</span>':''}</div>
+        <div style="font-size:13px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
+        <div style="font-size:11px;color:#7c3aed;font-weight:600">📍 ${it.warehouse}${it.floor?' · ชั้น/ห้อง '+it.floor:''} · ${it.unit}${it.unitFactor>1?' (×'+it.unitFactor+')':''}</div>
+      </div>
+      <span style="font-size:13px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;background:${bg};color:${fg}">${it.stock} ${it.unit}</span>
+      <span style="color:#94a3b8">→</span>
+    </div>`;
+  }).join('');
+}
+
+function wAddItem(idx) {
+  const src = _wResults[idx];
+  if (!src) return;
+  // เช็คซ้ำ (รหัส+โกดัง+ชั้น เดียวกัน)
+  const dup = wDocItems.find(d => d.code===src.code && d.warehouse===src.warehouse && d.floor===src.floor);
+  if (dup) {
+    dup.qty++;
+    _wRender(dup._id);
+  } else {
+    wDocItems.push({
+      code: src.code, name: src.name, barcode: src.barcode||'',
+      warehouse: src.warehouse, floor: src.floor||'', unit: src.unit||'',
+      factor: src.unitFactor||1, stock: src.stock, qty: 1, _id: _wNextId++
+    });
+    _wRender(_wNextId-1);
+  }
+  document.getElementById('w-search').value = '';
+  document.getElementById('w-results').style.display = 'none';
+  document.getElementById('w-search').focus();
+}
+
+function wAddNew(code) {
+  // เปิดฟอร์มเพิ่มสินค้าใหม่ — ไปที่ tab สินค้า
+  if (confirm('สินค้า "'+code+'" ยังไม่มีในระบบ\n\nต้องการไปที่หน้า "สินค้า" เพื่อเพิ่มสินค้าใหม่ก่อนหรือไม่?')) {
+    document.getElementById('w-results').style.display = 'none';
+    switchTab('products');
+    setTimeout(() => { if (typeof showProductForm === 'function') showProductForm(null); }, 300);
+  }
+}
+
+function wChangeQty(id, v) {
+  const it = wDocItems.find(d => d._id===id);
+  if (it) it.qty = Math.max(1, Number(v)||1);
+}
+
+function wDelItem(id) {
+  wDocItems = wDocItems.filter(d => d._id!==id);
+  _wRender();
+}
+
+function _wRender(flashId) {
+  const wrap  = document.getElementById('w-items');
+  const empty = document.getElementById('w-empty');
+  if (!wDocItems.length) { wrap.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  // จัดกลุ่มตามโกดัง
+  const groups = {};
+  wDocItems.forEach(it => { (groups[it.warehouse] = groups[it.warehouse]||[]).push(it); });
+
+  wrap.innerHTML = Object.entries(groups).map(([wh, items]) => `
+    <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+      <div style="background:#1a56db;color:#fff;padding:9px 14px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px">
+        📦 โกดัง: ${wh}<span style="margin-left:auto;font-size:11px;background:rgba(255,255,255,.25);padding:2px 9px;border-radius:12px">${items.length} รายการ</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f1f5f9">
+          <th style="font-size:11px;color:#475569;padding:6px 8px;width:28px;text-align:center">ที่</th>
+          <th style="font-size:11px;color:#475569;padding:6px 8px;text-align:left">สินค้า</th>
+          <th style="font-size:11px;color:#475569;padding:6px 8px;width:66px;text-align:center">จำนวน</th>
+          <th style="font-size:11px;color:#475569;padding:6px 8px;width:72px;text-align:center">หน่วย (อัตรา)</th>
+          <th style="font-size:11px;color:#475569;padding:6px 8px;width:52px;text-align:center">ชั้น/ห้อง</th>
+          <th style="font-size:11px;padding:6px 8px;width:38px"></th>
+        </tr></thead>
+        <tbody>
+        ${items.map((it, i) => `
+          <tr id="wrow-${it._id}" style="border-bottom:1px solid #f1f5f9${flashId===it._id?';background:#dcfce7':''}">
+            <td style="text-align:center;padding:8px;font-size:13px">${i+1}</td>
+            <td style="padding:8px">
+              <div style="font-weight:700;font-size:11px;color:#1e40af">${it.code}</div>
+              <div style="font-size:12px">${it.name}</div>
+            </td>
+            <td style="text-align:center;padding:8px">
+              <input type="number" min="1" value="${it.qty}" onchange="wChangeQty(${it._id},this.value)"
+                style="width:56px;padding:5px;border:1.5px solid #cbd5e1;border-radius:6px;text-align:center;font-size:14px;font-weight:700">
+              <span style="font-size:10px;color:#94a3b8;display:block">มี ${it.stock}</span>
+            </td>
+            <td style="text-align:center;padding:8px;font-size:12px">${it.unit}${it.factor>1?' ('+it.factor+')':''}</td>
+            <td style="text-align:center;padding:8px;font-size:11px;color:#7c3aed">${it.floor||'—'}</td>
+            <td style="text-align:center;padding:8px"><button onclick="wDelItem(${it._id})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">🗑</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  // flash animation reset
+  if (flashId) setTimeout(() => {
+    const r = document.getElementById('wrow-'+flashId);
+    if (r) r.style.background = '';
+  }, 800);
+}
+
+function wOpenPreview() {
+  const op   = document.getElementById('op-w').value.trim();
+  const note = document.getElementById('note-w').value.trim();
+  if (!op) { showResult('กรุณากรอกชื่อผู้เบิก', false); return; }
+  if (!wDocItems.length) { showResult('ยังไม่มีรายการ — ค้นหาสินค้าเพื่อเพิ่ม', false); return; }
+
+  const allItems = wDocItems.map((it, i) => ({
+    idx: i, code: it.code, warehouse: it.warehouse, qty: it.qty,
+    factor: it.factor, name: it.name, unit: it.unit, floor: it.floor, remark: ''
+  }));
+  currentDocType = 'เบิก';
+  currentDocOp   = op;
+  currentDocNote = note;
+  buildDocHTML('เบิก', allItems, op, note, false, '');
+}
+
+function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ════════════════════════════════════════════════════
 //  OPEN PREVIEW
 // ════════════════════════════════════════════════════
 function openPreview(type) {
@@ -1276,7 +1464,6 @@ function openPreview(type) {
   if (hasError)         { showResult('มีรายการหรือโกดังที่ไม่ครบ', false); return; }
   if (!allItems.length) { showResult('ไม่มีรายการ', false); return; }
   currentDocType = type;
-  // [FIX #2] เก็บ op/note ไว้ใน state
   currentDocOp   = op;
   currentDocNote = note;
   buildDocHTML(type, allItems, op, note, false, '');
@@ -1776,6 +1963,8 @@ function _markApproved() {
   ['btn-approve-w','btn-approve-r','btn-approve-t','btn-save'].forEach(id => document.getElementById(id).classList.add('hidden'));
   document.querySelectorAll('.btn-del-row').forEach(b => b.style.display='none');
   document.querySelectorAll('#doc-tbody input').forEach(inp => inp.readOnly = true);
+  // ล้างรายการเบิกที่ search-based (ถ้าเป็นใบเบิก)
+  if (currentDocType === 'เบิก') { wDocItems = []; _wRender(); }
 }
 
 function markDraftApproved() {
