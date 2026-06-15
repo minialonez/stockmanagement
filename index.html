@@ -519,7 +519,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
       </div>
 
       <!-- search by keyword -->
-      <input id="rpt-search" placeholder="ค้นหา รหัส / ชื่อสินค้า / โกดัง / ผู้ดำเนินการ..." oninput="renderReport()"
+      <input id="rpt-search" placeholder="ค้นหา รหัส / ชื่อ / โกดัง / ผู้ดำเนินการ... (เว้นวรรคระหว่างคำได้)" oninput="renderReport()"
         style="font-size:13px;padding:8px 11px;margin-bottom:10px">
 
       <!-- summary badges -->
@@ -2512,10 +2512,11 @@ function renderReport() {
   let rows = rptData;
 
   if (q) {
+    const tokens = q.split(/\s+/).filter(Boolean);
     rows = rows.filter(r => {
       const hay = [r.code, r.name, r.warehouse||'', r.fromWh||'', r.toWh||'',
-                   r.operator, r.note, r.docNo||''].join(' ').toUpperCase();
-      return hay.includes(q);
+                   r.operator, r.note, r.docNo||'', r.unit||''].join(' ').toUpperCase();
+      return tokens.every(t => hay.includes(t));
     });
   }
 
@@ -2688,8 +2689,11 @@ function saveUser(isNew) {
   if (!username)        { alert('กรุณากรอก username'); return; }
   if (isNew&&!password) { alert('กรุณากรอกรหัสผ่าน'); return; }
   if (!displayName)     { alert('กรุณากรอกชื่อ'); return; }
-  const permKeys = ['withdraw','receive','transfer','search','docs','products','scraps','approve','warehouse_detail'];
-  const perms = permKeys.filter(k => document.getElementById(`perm-${k}`)?.checked).join(',');
+  // อ่านจาก checkbox ทุกตัวที่อยู่ในฟอร์มจริง (กันลืม sync กับ TAB_LABELS)
+  const perms = Array.from(document.querySelectorAll('#user-form-area input[type=checkbox][id^="perm-"]'))
+    .filter(cb => cb.checked)
+    .map(cb => cb.value)
+    .join(',');
   callAPI('saveUser', { username, password, displayName, role, isNew, permissions: perms })
     .then(r => {
       if (r.success) { document.getElementById('user-form-area').innerHTML = ''; loadUsers(); showResult('บันทึกผู้ใช้สำเร็จ', true); }
