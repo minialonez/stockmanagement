@@ -538,11 +538,12 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
               <th style="padding:7px 8px;text-align:center">จำนวน</th>
               <th style="padding:7px 8px;text-align:center">คงเหลือ</th>
               <th style="padding:7px 8px;text-align:left">ผู้ดำเนินการ</th>
+              <th style="padding:7px 8px;text-align:left">เลขที่เอกสาร</th>
               <th style="padding:7px 8px;text-align:left">หมายเหตุ</th>
             </tr>
           </thead>
           <tbody id="rpt-tbody">
-            <tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>
           </tbody>
         </table>
       </div>
@@ -850,7 +851,7 @@ function switchTab(tid) {
   if (tid === 'pr')       loadPRs();
   if (tid === 'po')       { loadPOs(); if(!allSuppliers.length) loadSuppliers(); }
   if (tid === 'users')    loadUsers();
-  if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
+  if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
 }
 
 // ════════════════════════════════════════════════════
@@ -2481,7 +2482,7 @@ function loadReport() {
   const dateTo   = document.getElementById('rpt-to')?.value   || '';
 
   document.getElementById('rpt-tbody').innerHTML =
-    '<tr><td colspan="9" style="text-align:center;padding:20px;color:#6b7280">⏳ กำลังโหลด...</td></tr>';
+    '<tr><td colspan="10" style="text-align:center;padding:20px;color:#6b7280">⏳ กำลังโหลด...</td></tr>';
   document.getElementById('rpt-summary').innerHTML = '';
 
   if (type === 'ย้ายโกดัง') {
@@ -2492,7 +2493,7 @@ function loadReport() {
       })
       .catch(e => {
         document.getElementById('rpt-tbody').innerHTML =
-          `<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
+          `<tr><td colspan="10" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
       });
   } else {
     callAPI('getLog', { filterType: type, dateFrom, dateTo })
@@ -2502,7 +2503,7 @@ function loadReport() {
       })
       .catch(e => {
         document.getElementById('rpt-tbody').innerHTML =
-          `<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
+          `<tr><td colspan="10" style="text-align:center;padding:20px;color:#dc2626">❌ ${e.message}</td></tr>`;
       });
   }
 }
@@ -2540,7 +2541,7 @@ function renderReport() {
 
   if (!rows.length) {
     document.getElementById('rpt-tbody').innerHTML =
-      '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">ไม่พบข้อมูล</td></tr>';
+      '<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">ไม่พบข้อมูล</td></tr>';
     document.getElementById('rpt-footer').textContent = '';
     return;
   }
@@ -2561,6 +2562,7 @@ function renderReport() {
         <td style="padding:6px 8px;text-align:center"><span class="rpt-qty-t">${r.qty} ${r.unit}</span></td>
         <td style="padding:6px 8px;text-align:center;color:#6b7280">—</td>
         <td style="padding:6px 8px">${r.operator}</td>
+        <td style="padding:6px 8px;font-size:10px;color:#0369a1;font-weight:600">${r.docNo||'—'}</td>
         <td style="padding:6px 8px;color:#6b7280;font-size:11px">${r.note||'—'}</td>
       </tr>`;
     }
@@ -2582,6 +2584,7 @@ function renderReport() {
       <td style="padding:6px 8px;text-align:center"><span class="${qtyCls}">${qtySign}${r.qty} ${r.unit}</span></td>
       <td style="padding:6px 8px;text-align:center">${r.stockAfter} ${r.unit}</td>
       <td style="padding:6px 8px">${r.operator}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#0369a1;font-weight:600">${r.docNo||'—'}</td>
       <td style="padding:6px 8px;color:#6b7280;font-size:11px">${r.note||'—'}</td>
     </tr>`;
   }).join('');
@@ -2597,7 +2600,7 @@ function clearReportFilter() {
   document.getElementById('rpt-search').value = '';
   rptData = [];
   document.getElementById('rpt-tbody').innerHTML =
-    '<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>';
+    '<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>';
   document.getElementById('rpt-summary').innerHTML = '';
   document.getElementById('rpt-footer').textContent = '';
 }
