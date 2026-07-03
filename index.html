@@ -260,7 +260,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
   <div class="login-card">
     <div class="login-logo">📦</div>
     <div class="login-title">เบิก-รับ สต็อก</div>
-    <div class="login-sub">บริษัท จงกลณี การไฟฟ้า จำกัด</div>
+    <div class="login-sub" id="login-company">&nbsp;</div>
     <label>ชื่อผู้ใช้</label>
     <input id="lu" placeholder="username" autocomplete="username"
       onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()">
@@ -278,7 +278,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
 <!-- APP -->
 <div id="app" class="hidden">
   <div class="header">
-    <span class="header-title">📦 เบิก-รับ สต็อก จงกลณี การไฟฟ้า</span>
+    <span class="header-title" id="header-company">📦 เบิก-รับ สต็อก</span>
     <span id="user-badge" class="user-badge"></span>
     <span id="cache-badge" class="cache-badge loading">⏳</span>
     <button onclick="loadCache()" style="padding:4px 9px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:7px;font-size:12px;cursor:pointer" title="รีเฟรชข้อมูลสินค้า">🔄</button>
@@ -563,6 +563,22 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     </div>
   </div>
 
+  <!-- TAB: จัดการโกดัง -->
+  <div id="tab-warehouses" class="hidden">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:14px;flex:1">🏭 จัดการโกดัง</span>
+        <button onclick="showWhForm(null)" style="padding:6px 13px;background:#0369a1;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">+ เพิ่มโกดัง</button>
+        <button onclick="loadWarehouses(true)" style="padding:6px 11px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:6px;font-size:12px;cursor:pointer">🔄</button>
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#92400e">
+        💡 <b>ปิดใช้งาน</b> = ซ่อนจากลิสต์เบิก/รับ แต่ยังเก็บข้อมูลสินค้าไว้ · <b>ลบ</b> = ทำได้เฉพาะโกดังที่ไม่มีสินค้าแล้ว
+      </div>
+      <div id="wh-form-area"></div>
+      <div id="wh-list"><p style="color:#9ca3af;font-size:13px">กำลังโหลด...</p></div>
+    </div>
+  </div>
+
   <!-- PREVIEW MODAL -->
   <div id="preview-modal">
     <div id="modal-inner">
@@ -604,14 +620,24 @@ async function callAPI(action, params = {}) {
 // ════════════════════════════════════════════════════
 //  CONFIG
 // ════════════════════════════════════════════════════
-const WH_LIST = ['ถนนสามัคคี','ดินสอ','กิฟฟารีน','ท่อเหล็ก','ท่อใหญ่','ฝั่งธน','สิโรรส'];
+// ┌─────────────────────────────────────────────────┐
+// │  ⭐ แก้ชื่อบริษัทที่นี่ที่เดียว (สำหรับบริษัทใหม่)      │
+// └─────────────────────────────────────────────────┘
+const COMPANY_NAME  = 'บริษัท จงกลณี การไฟฟ้า จำกัด'; // ชื่อเต็ม แสดงบนเอกสาร
+const COMPANY_SHORT = 'จงกลณี การไฟฟ้า';              // ชื่อย่อ แสดงบน header/login
+
+// ⭐ แก้รายชื่อโกดังของบริษัทใหม่ที่นี่
+// รายชื่อโกดัง — โหลดจาก Sheet WAREHOUSES (ไม่ hardcode แล้ว)
+let WH_LIST = [];        // เฉพาะโกดังสถานะ "ใช้งาน" (สำหรับ dropdown)
+let WH_ALL  = [];        // ทุกโกดัง (สำหรับหน้าจัดการ)
+// ⭐ แก้รายชื่อขนส่งของบริษัทใหม่ที่นี่
 const TRANSPORT_LIST = ['สามัคคี','พัทรทรัพย์','พัฒนาเอ็กซ์เพรส'];
 const ROLE_TABS = {
-  admin : ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','report','users'],
+  admin : ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','warehouses','report','users'],
   stock : ['withdraw','receive','transfer','search','docs','products','scraps','catalog','pr','report'],
   sales : ['withdraw','search','docs','scraps','catalog','pr','report']
 };
-const ALL_TABS = ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','report','users'];
+const ALL_TABS = ['withdraw','receive','transfer','search','docs','products','scraps','catalog','suppliers','pr','po','warehouses','report','users'];
 const TAB_META = {
   withdraw : '🔻 เบิกของ',
   receive  : '🔺 รับของเข้า',
@@ -624,6 +650,7 @@ const TAB_META = {
   suppliers: '🏢 เจ้าหนี้',
   pr       : '📝 ใบขอสั่ง',
   po       : '🛒 ใบสั่งซื้อ',
+  warehouses: '🏭 จัดการโกดัง',
   report   : '📊 รายงาน',
   users    : '👥 ผู้ใช้'
 };
@@ -691,6 +718,15 @@ function tryAutoLogin() {
     .catch(function() { _clearSession(); errEl.classList.add('hidden'); });
 }
 
+// ตั้งชื่อบริษัทจาก config (แก้ที่ COMPANY_NAME / COMPANY_SHORT ด้านบน)
+function _applyCompanyName() {
+  const lc = document.getElementById('login-company');
+  const hc = document.getElementById('header-company');
+  if (lc) lc.textContent = COMPANY_NAME;
+  if (hc) hc.textContent = '📦 เบิก-รับ สต็อก ' + COMPANY_SHORT;
+  document.title = 'เบิก-รับ สต็อก ' + COMPANY_SHORT;
+}
+document.addEventListener('DOMContentLoaded', _applyCompanyName);
 document.addEventListener('DOMContentLoaded', tryAutoLogin);
 
 // ════════════════════════════════════════════════════
@@ -752,14 +788,25 @@ function initApp() {
   const roleLabel = { admin:'Admin', stock:'คลังสินค้า', sales:'ขาย' };
   document.getElementById('user-badge').textContent =
     currentUser.displayName + ' · ' + (roleLabel[currentUser.role] || currentUser.role);
-  const whOpts = WH_LIST.map(w => `<option>${w}</option>`).join('');
-  ['from-wh-t','to-wh-t'].forEach(id => {
-    document.getElementById(id).innerHTML = '<option value="">-- เลือก --</option>' + whOpts;
-  });
   buildTabs();
   ['op-w','op-r','op-t'].forEach(id => { document.getElementById(id).value = currentUser.displayName; });
   addTransferItem();
   loadCache();
+  // โหลดรายชื่อโกดังจาก Sheet แล้ว sync dropdown
+  loadWarehouses();
+}
+
+// เติม dropdown ย้ายโกดัง (from/to) จาก WH_LIST
+function _syncWarehouseDropdowns() {
+  const whOpts = WH_LIST.map(w => `<option>${w}</option>`).join('');
+  ['from-wh-t','to-wh-t'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const cur = el.value;
+      el.innerHTML = '<option value="">-- เลือก --</option>' + whOpts;
+      if (cur && WH_LIST.includes(cur)) el.value = cur;
+    }
+  });
 }
 
 // ════════════════════════════════════════════════════
@@ -851,6 +898,7 @@ function switchTab(tid) {
   if (tid === 'pr')       loadPRs();
   if (tid === 'po')       { loadPOs(); if(!allSuppliers.length) loadSuppliers(); }
   if (tid === 'users')    loadUsers();
+  if (tid === 'warehouses') loadWarehouses();
   if (tid === 'report')   { rptData = []; document.getElementById('rpt-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">กดค้นหาเพื่อแสดงรายงาน</td></tr>'; document.getElementById('rpt-summary').innerHTML=''; }
 }
 
@@ -1746,7 +1794,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
     : '<span class="status-badge badge-pending"  id="doc-status">⏳ รอการอนุมัติ</span>';
 
   document.getElementById('doc-area').innerHTML = `
-    <div class="doc-header"><div class="doc-title">${title}</div><div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div></div>
+    <div class="doc-header"><div class="doc-title">${title}</div><div class="doc-company">${COMPANY_NAME}</div></div>
     <div class="doc-meta">
       <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
       <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
@@ -1805,7 +1853,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้ตัดสต็อกสินค้า</div></div>
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">${appLabel}</div></div>
     </div>
-    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${docNo}</div>`;
+    <div class="doc-footer">${COMPANY_NAME} | ${docNo}</div>`;
 
   document.getElementById('modal-title').textContent = title + ' — ' + docNo;
   document.getElementById('btn-save').classList.toggle('hidden', isApproved);
@@ -1856,7 +1904,7 @@ function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingD
   }).join('');
 
   document.getElementById('doc-area').innerHTML = `
-    <div class="doc-header"><div class="doc-title">ใบย้ายสินค้าระหว่างโกดัง</div><div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div></div>
+    <div class="doc-header"><div class="doc-title">ใบย้ายสินค้าระหว่างโกดัง</div><div class="doc-company">${COMPANY_NAME}</div></div>
     <div class="doc-meta">
       <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
       <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
@@ -1911,7 +1959,7 @@ function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingD
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้โอน</div></div>
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้รับ</div></div>
     </div>
-    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${docNo}</div>`;
+    <div class="doc-footer">${COMPANY_NAME} | ${docNo}</div>`;
 
   document.getElementById('modal-title').textContent = 'ใบย้ายสินค้า — ' + docNo;
   document.getElementById('btn-save').classList.toggle('hidden', isApproved);
@@ -2608,6 +2656,148 @@ function clearReportFilter() {
 // ════════════════════════════════════════════════════
 //  USERS
 // ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  WAREHOUSE MANAGEMENT — จัดการโกดัง
+// ════════════════════════════════════════════════════
+function loadWarehouses(showList) {
+  const el = document.getElementById('wh-list');
+  if (showList && el) el.innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
+
+  return callAPI('getWarehouses')
+    .then(res => {
+      WH_ALL  = res || [];
+      WH_LIST = WH_ALL.filter(w => w.status === 'ใช้งาน').map(w => w.name);
+      _syncWarehouseDropdowns();
+      // ถ้าอยู่หน้าจัดการโกดัง render ตาราง
+      if (!document.getElementById('tab-warehouses')?.classList.contains('hidden')) {
+        renderWarehouseList();
+      }
+    })
+    .catch(e => {
+      if (el) el.innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>';
+    });
+}
+
+function renderWarehouseList() {
+  const el = document.getElementById('wh-list');
+  if (!el) return;
+  if (!WH_ALL.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ยังไม่มีโกดัง</p>'; return; }
+
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#0369a1;color:#fff">
+        <th style="padding:8px 10px;text-align:left">ชื่อโกดัง</th>
+        <th style="padding:8px 10px;text-align:center;width:90px">สถานะ</th>
+        <th style="padding:8px 10px;text-align:left">หมายเหตุ</th>
+        <th style="padding:8px 10px;text-align:center;width:110px">จัดการ</th>
+      </tr></thead>
+      <tbody>
+        ${WH_ALL.map((w, idx) => {
+          const active = w.status === 'ใช้งาน';
+          return `<tr style="border-bottom:1px solid #e5e7eb">
+            <td style="padding:8px 10px;font-weight:700${active?'':';color:#9ca3af'}">${w.name}</td>
+            <td style="padding:8px 10px;text-align:center">
+              <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${active?'#dcfce7':'#f3f4f6'};color:${active?'#166534':'#9ca3af'}">${active?'✓ ใช้งาน':'ปิดใช้งาน'}</span>
+            </td>
+            <td style="padding:8px 10px;font-size:12px;color:#6b7280">${w.note||'—'}</td>
+            <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+              <button onclick="_whEdit(${idx})" style="padding:4px 8px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:5px;font-size:11px;cursor:pointer">✏️</button>
+              <button onclick="_whToggle(${idx})" style="padding:4px 8px;background:${active?'#fef3c7':'#dcfce7'};color:${active?'#92400e':'#166534'};border:1px solid ${active?'#fbbf24':'#86efac'};border-radius:5px;font-size:11px;cursor:pointer">${active?'ปิด':'เปิด'}</button>
+              <button onclick="_whDelete(${idx})" style="padding:4px 8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;font-size:11px;cursor:pointer">🗑</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:#6b7280;margin-top:8px;text-align:right">รวม ${WH_ALL.length} โกดัง · ใช้งาน ${WH_LIST.length} · ปิด ${WH_ALL.length - WH_LIST.length}</div>`;
+}
+
+function showWhForm(wh) {
+  window._whEditing = wh;
+  const isEdit = !!wh;
+  const area = document.getElementById('wh-form-area');
+  area.innerHTML = `
+    <div style="background:#e0f2fe;border:2px solid #0369a1;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#0369a1">${isEdit?'✏️ แก้ไขโกดัง':'+ เพิ่มโกดังใหม่'}</div>
+      <div style="margin-bottom:10px">
+        <span class="field-label" style="color:#0369a1">ชื่อโกดัง *</span>
+        <input id="wh-name" value="${isEdit?wh.name.replace(/"/g,'&quot;'):''}" placeholder="เช่น โกดังใหม่ / สาขา 2" style="font-size:14px;padding:9px 12px;margin:0;border:2px solid #7dd3fc;border-radius:8px">
+      </div>
+      <div style="margin-bottom:12px">
+        <span class="field-label" style="color:#0369a1">หมายเหตุ</span>
+        <input id="wh-note" value="${isEdit?(wh.note||'').replace(/"/g,'&quot;'):''}" placeholder="(ไม่บังคับ)" style="font-size:13px;padding:8px 12px;margin:0;border:1.5px solid #cbd5e1;border-radius:8px">
+      </div>
+      ${isEdit && wh.name !== document.getElementById('wh-name')?.value ? '' : ''}
+      ${isEdit ? '<div style="font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin-bottom:10px">⚠️ ถ้าเปลี่ยนชื่อ ระบบจะอัปเดตชื่อโกดังในสินค้าทุกรายการที่อยู่โกดังนี้ให้อัตโนมัติ</div>' : ''}
+      <div style="display:flex;gap:8px">
+        <button id="wh-save-btn" onclick="saveWarehouse()" style="flex:1;padding:11px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✔ บันทึก</button>
+        <button onclick="document.getElementById('wh-form-area').innerHTML=''" style="padding:11px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">ยกเลิก</button>
+      </div>
+    </div>`;
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('wh-name')?.focus(), 200);
+}
+
+function saveWarehouse() {
+  const name = document.getElementById('wh-name')?.value.trim() || '';
+  const note = document.getElementById('wh-note')?.value.trim() || '';
+  if (!name) { alert('กรุณากรอกชื่อโกดัง'); return; }
+
+  const editing = window._whEditing;
+  const btn = document.getElementById('wh-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...'; }
+
+  const action = editing ? 'updateWarehouse' : 'addWarehouse';
+  const params = editing
+    ? { uuid: editing.uuid, name, status: editing.status, note }
+    : { name, note };
+
+  callAPI(action, params)
+    .then(r => {
+      if (r.success) {
+        document.getElementById('wh-form-area').innerHTML = '';
+        let msg = editing ? '✅ แก้ไขโกดังแล้ว' : '✅ เพิ่มโกดัง "' + name + '" แล้ว';
+        if (r.renamed) msg += ` (อัปเดตสินค้า ${r.renamed} รายการ)`;
+        showResult(msg, true);
+        loadWarehouses(true);
+        loadCache(); // refresh สินค้า เผื่อชื่อโกดังเปลี่ยน
+      } else {
+        alert(r.error);
+        if (btn) { btn.disabled = false; btn.textContent = '✔ บันทึก'; }
+      }
+    })
+    .catch(e => {
+      alert('❌ ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = '✔ บันทึก'; }
+    });
+}
+
+function _whEdit(idx)   { showWhForm(WH_ALL[idx]); }
+
+function _whToggle(idx) {
+  const w = WH_ALL[idx];
+  if (!w) return;
+  const newStatus = w.status === 'ใช้งาน' ? 'ปิดใช้งาน' : 'ใช้งาน';
+  callAPI('updateWarehouse', { uuid: w.uuid, name: w.name, status: newStatus, note: w.note })
+    .then(r => {
+      if (r.success) { showResult(`โกดัง "${w.name}" → ${newStatus}`, true); loadWarehouses(true); }
+      else alert(r.error);
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
+function _whDelete(idx) {
+  const w = WH_ALL[idx];
+  if (!w) return;
+  if (!confirm(`ลบโกดัง "${w.name}"?\n\n(ลบได้เฉพาะโกดังที่ไม่มีสินค้าแล้ว)`)) return;
+  callAPI('deleteWarehouse', { uuid: w.uuid })
+    .then(r => {
+      if (r.success) { showResult(`ลบโกดัง "${w.name}" แล้ว`, true); loadWarehouses(true); }
+      else alert(r.error);
+    })
+    .catch(e => alert('❌ ' + e.message));
+}
+
 function loadUsers() {
   document.getElementById('user-list').innerHTML = '<p style="color:#9ca3af;font-size:13px">⏳ กำลังโหลด...</p>';
   callAPI('getUsersList')
@@ -3302,7 +3492,7 @@ function _renderPODocument() {
   document.getElementById('doc-area').innerHTML = `
     <div class="doc-header">
       <div class="doc-title">ใบสั่งซื้อสินค้า</div>
-      <div class="doc-company">บริษัท จงกลณี การไฟฟ้า จำกัด</div>
+      <div class="doc-company">${COMPANY_NAME}</div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:12px">
@@ -3339,7 +3529,7 @@ function _renderPODocument() {
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้สั่งซื้อ</div></div>
       <div class="doc-sign-box"><div class="doc-sign-line"></div><div class="doc-sign-label">(................................)</div><div class="doc-sign-label">ผู้อนุมัติ</div></div>
     </div>
-    <div class="doc-footer">บริษัท จงกลณี การไฟฟ้า จำกัด | ${poNo}</div>`;
+    <div class="doc-footer">${COMPANY_NAME} | ${poNo}</div>`;
 
   // Navigation
   const navHtml = _poSupplierList.length > 1
