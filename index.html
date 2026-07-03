@@ -2722,17 +2722,36 @@ function loadWarehouses(showList) {
 
   return callAPI('getWarehouses')
     .then(res => {
-      WH_ALL  = res || [];
+      // ป้องกัน backend เก่าที่ตอบ error object แทน array
+      if (!Array.isArray(res)) throw new Error(res && res.error ? res.error : 'ยังไม่ได้ Deploy Code.gs ตัวใหม่');
+      WH_ALL  = res;
       WH_LIST = WH_ALL.filter(w => w.status === 'ใช้งาน').map(w => w.name);
       _syncWarehouseDropdowns();
-      // ถ้าอยู่หน้าจัดการโกดัง render ตาราง
       if (!document.getElementById('tab-warehouses')?.classList.contains('hidden')) {
         renderWarehouseList();
       }
     })
     .catch(e => {
-      if (el) el.innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '</p>';
+      // Fallback: ดึงรายชื่อโกดังจากสินค้าใน DB แทน (ระบบใช้งานต่อได้)
+      console.warn('getWarehouses failed, fallback to DB:', e.message);
+      _fallbackWarehousesFromDB();
+      if (el) el.innerHTML = '<p style="color:#dc2626;font-size:13px">❌ ' + e.message + '<br><small style="color:#6b7280">กรุณา Deploy Code.gs เวอร์ชันใหม่ (Deploy → New version)</small></p>';
     });
+}
+
+// Fallback: สกัดรายชื่อโกดังจากข้อมูลสินค้า (เมื่อ backend ยังไม่มี getWarehouses)
+function _fallbackWarehousesFromDB() {
+  const apply = () => {
+    const seen = {};
+    WH_LIST = [];
+    (DB || []).forEach(i => {
+      const w = (i.warehouse || '').trim();
+      if (w && !seen[w]) { seen[w] = true; WH_LIST.push(w); }
+    });
+    _syncWarehouseDropdowns();
+  };
+  if (DB_READY && DB.length) apply();
+  else setTimeout(() => { if (DB_READY) apply(); }, 3000); // รอ cache โหลดเสร็จ
 }
 
 function renderWarehouseList() {
