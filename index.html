@@ -603,18 +603,53 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
 // ════════════════════════════════════════════════════
 const API_URL = 'https://script.google.com/macros/s/AKfycby_XvWw9U_y_hc9L5vBkUtdo6C-KTPfj7PVPKHQTVVb5vnZOunFbueg1DbyzZN-lrE9Kg/exec';
 
+// action ที่ "เขียนข้อมูล" — ห้าม retry อัตโนมัติ (กันตัดสต็อกซ้ำ)
+const _WRITE_ACTIONS = ['submitBatch','transferBatch','adjustStock','cutScrap',
+  'saveDraft','saveUser','deleteUser','addProduct','updateProduct','deleteProduct',
+  'addScrap','updateScrap','deleteScrap','addProductAll','updateProductAll','deleteProductAll',
+  'addSupplier','updateSupplier','deleteSupplier','addWarehouse','updateWarehouse','deleteWarehouse',
+  'markDraftApproved','deleteDraft','savePurchaseRequest','approvePurchaseRequest',
+  'updatePurchaseOrder','markPOOrdered'];
+
 async function callAPI(action, params = {}) {
   if (!API_URL) throw new Error('กรุณาตั้งค่า API_URL ใน index.html ก่อน');
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, ...params }),
-    redirect: 'follow'
-  });
-  if (!res.ok) throw new Error('HTTP Error ' + res.status);
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch(e) { throw new Error('Invalid response from server'); }
+
+  const isWrite = _WRITE_ACTIONS.includes(action);
+  const maxTries = isWrite ? 1 : 3;   // อ่านข้อมูล retry ได้, เขียนข้อมูลห้าม retry
+  let lastErr;
+
+  for (let attempt = 1; attempt <= maxTries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), isWrite ? 60000 : 30000);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, ...params }),
+        redirect: 'follow',
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP Error ' + res.status);
+      const text = await res.text();
+      try { return JSON.parse(text); }
+      catch(e) { throw new Error('เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (อาจกำลังโหลดหนัก)'); }
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (e.name === 'AbortError') {
+        lastErr = new Error(isWrite
+          ? 'หมดเวลารอ — กรุณาเช็คในหน้าเอกสารว่าบันทึกสำเร็จหรือไม่ ก่อนกดซ้ำ'
+          : 'หมดเวลารอเซิร์ฟเวอร์ กรุณาลองใหม่');
+      }
+      // ยังมีโอกาสลองใหม่ → หน่วงแล้วลองอีก
+      if (attempt < maxTries) {
+        await new Promise(r => setTimeout(r, attempt * 800));
+        continue;
+      }
+    }
+  }
+  throw lastErr;
 }
 
 // ════════════════════════════════════════════════════
