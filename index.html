@@ -603,6 +603,19 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
 // ════════════════════════════════════════════════════
 const API_URL = 'https://script.google.com/macros/s/AKfycby_XvWw9U_y_hc9L5vBkUtdo6C-KTPfj7PVPKHQTVVb5vnZOunFbueg1DbyzZN-lrE9Kg/exec';
 
+// ════════════════════════════════════════════════════
+//  API VERSION — ต้องตรงกับ API_VERSION ใน Code.gs
+//  ⚠️ แก้เลขนี้พร้อมกับ Code.gs ทุกครั้ง แล้ว deploy ทั้งคู่
+// ════════════════════════════════════════════════════
+const REQUIRED_API_VERSION = '2026-10-05';
+
+function _versionMismatchMsg(got) {
+  return '⚠️ ระบบฝั่งเซิร์ฟเวอร์ยังไม่ได้อัปเดต\n\n'
+       + 'หน้าเว็บต้องการเวอร์ชัน: ' + REQUIRED_API_VERSION + '\n'
+       + 'เซิร์ฟเวอร์ตอนนี้เป็น: ' + (got || 'เวอร์ชันเก่า (ไม่ระบุ)') + '\n\n'
+       + 'วิธีแก้ (ผู้ดูแลระบบ): Apps Script → Deploy → Manage deployments → ✏️ → New version → Deploy';
+}
+
 // action ที่ "เขียนข้อมูล" — ห้าม retry อัตโนมัติ (กันตัดสต็อกซ้ำ)
 const _WRITE_ACTIONS = ['submitBatch','transferBatch','adjustStock','cutScrap',
   'saveDraft','saveUser','deleteUser','addProduct','updateProduct','deleteProduct',
@@ -765,6 +778,10 @@ function tryAutoLogin() {
   callAPI('login', { username: session.u, password: session.p })
     .then(function(res) {
       if (res && res.success) {
+        if (res.apiVersion !== REQUIRED_API_VERSION) {
+          errEl.textContent = 'เซิร์ฟเวอร์ยังไม่ได้อัปเดต — กรุณาแจ้งผู้ดูแลระบบ';
+          return;
+        }
         currentUser = res;
         const loginEl = document.getElementById('login-screen');
         const appEl   = document.getElementById('app');
@@ -806,6 +823,10 @@ function doLogin() {
     .then(function(res) {
       if (!res) { setLoginErr('❌ ไม่ได้รับข้อมูลจาก server — ตรวจสอบ Sheet USERS'); return; }
       if (res.success) {
+        if (res.apiVersion !== REQUIRED_API_VERSION) {
+          setLoginErr(_versionMismatchMsg(res.apiVersion));
+          return;
+        }
         currentUser = res;
         if (document.getElementById('lremember')?.checked) _saveSession(u, p);
         else _clearSession();
