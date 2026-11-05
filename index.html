@@ -368,13 +368,15 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
       </div>
       <div class="doc-filter">
         <button class="doc-filter-btn active" onclick="setDocFilter('all',this)">⏳ รอดำเนินการ</button>
+        <button class="doc-filter-btn" onclick="setDocFilter('every',this)">📁 ทั้งหมด</button>
         <button class="doc-filter-btn" onclick="setDocFilter('อนุมัติแล้ว',this)">✅ อนุมัติแล้ว</button>
         <button class="doc-filter-btn" onclick="setDocFilter('เบิก',this)">🔻 เบิก</button>
         <button class="doc-filter-btn" onclick="setDocFilter('รับเข้า',this)">🔺 รับ</button>
         <button class="doc-filter-btn" onclick="setDocFilter('ย้ายโกดัง',this)">🔄 ย้าย</button>
       </div>
-      <input id="doc-search" placeholder="ค้นหาเลขที่ / ผู้ดำเนินการ..." oninput="renderDocList()"
-        style="margin-bottom:10px;font-size:13px;padding:8px 10px">
+      <input id="doc-search" placeholder="ค้นหาเลขที่ / ผู้ดำเนินการ / หมายเหตุ... (ค้นทุกสถานะ)" oninput="renderDocList()"
+        style="margin-bottom:4px;font-size:13px;padding:8px 10px">
+      <div id="doc-search-hint" style="font-size:12px;color:#0369a1;margin-bottom:8px"></div>
       <div id="doc-list"><p style="color:#9ca3af;font-size:13px">กดรีเฟรชเพื่อโหลดเอกสาร</p></div>
     </div>
   </div>
@@ -2234,14 +2236,33 @@ function setDocFilter(f, btn) {
 function renderDocList() {
   const q   = (document.getElementById('doc-search')?.value || '').trim().toUpperCase();
   const el  = document.getElementById('doc-list');
-  let docs  = allDocs.filter(d => {
+  // ⭐ พิมพ์ค้นหา = ค้นทุกใบทุกสถานะ ไม่ถูกจำกัดด้วยแท็บที่เลือกอยู่
+  let docs = q ? allDocs.slice() : allDocs.filter(d => {
+    if (docFilter === 'every')      return true;
     if (docFilter === 'all')        return d.status !== 'อนุมัติแล้ว';
     if (docFilter === 'อนุมัติแล้ว') return d.status === 'อนุมัติแล้ว';
     if (docFilter === 'รอการอนุมัติ') return d.status === 'รอการอนุมัติ';
     return d.type === docFilter;
   });
-  if (q) docs = docs.filter(d => d.docNo.toUpperCase().includes(q) || d.operator.toUpperCase().includes(q));
-  if (!docs.length) { el.innerHTML = '<p style="color:#9ca3af;font-size:13px">ไม่มีเอกสาร</p>'; return; }
+  if (q) {
+    const tokens = q.split(/\s+/).filter(Boolean);
+    docs = docs.filter(d => {
+      const hay = [d.docNo, d.operator, d.note || '', d.type || '', d.status || '']
+        .join(' ').toUpperCase();
+      return tokens.every(t => hay.includes(t));
+    });
+  }
+  const hint = document.getElementById('doc-search-hint');
+  if (hint) hint.innerHTML = q
+    ? `🔎 ค้นหาทุกสถานะ — พบ <b>${docs.length}</b> ใบ จากทั้งหมด ${allDocs.length} ใบ`
+    : '';
+  if (!docs.length) {
+    el.innerHTML = q
+      ? `<p style="color:#dc2626;font-size:13px">ไม่พบ "${q}" — ตรวจแล้วทั้ง ${allDocs.length} ใบในระบบ<br>
+         <span style="color:#6b7280;font-size:12px">ถ้ามั่นใจว่ามีอยู่ ให้กด 🔄 รีเฟรช ก่อน</span></p>`
+      : '<p style="color:#9ca3af;font-size:13px">ไม่มีเอกสาร</p>';
+    return;
+  }
 
   const typeIcon = { 'เบิก':'🔻', 'รับเข้า':'🔺', 'ย้ายโกดัง':'🔄' };
   el.innerHTML = docs.map(d => {
@@ -2253,6 +2274,7 @@ function renderDocList() {
       <div class="doc-card-header">
         <span class="doc-card-no">${typeIcon[d.type]||''} ${d.docNo}</span>
         <span class="doc-status-badge ${sbCls}">${isPending?'⏳ รอ':'✅ อนุมัติ'}</span>
+        <span style="font-size:10px;color:#9ca3af">${d.type||''}</span>
         ${isPending && _canApprove() ?
           `<button class="btn-delete-doc" onclick="event.stopPropagation();deleteDraftDoc('${d.docNo}')">🗑</button>` : ''}
       </div>
