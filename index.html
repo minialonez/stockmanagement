@@ -784,6 +784,8 @@ let currentDocType = '', docNo = '';
 // [FIX #2] เก็บ operator & note ไว้ใน state สำหรับ saveDraft
 let currentDocOp = '', currentDocNote = '';
 let allDocs = [], docFilter = 'all';
+// เอกสารที่เปิดอยู่ถูกบันทึกลงระบบแล้วหรือยัง — ยังไม่บันทึก = ห้ามอนุมัติ
+let docSaved = false;
 
 // ════════════════════════════════════════════════════
 //  SESSION REMEMBER
@@ -2016,9 +2018,12 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
 
   const role    = currentUser?.role || '';
   const permsArr = (currentUser?.permissions || '').split(',').map(p => p.trim());
-  const canApprove = !isApproved && (role === 'admin' || permsArr.includes('approve'));
+  // เปิดจากหน้าเอกสาร = มีในระบบแล้ว | สร้างใหม่ = ต้องกดบันทึกก่อน
+  docSaved = isApproved || !!existingDocNo;
+  const canApprove = !isApproved && docSaved && (role === 'admin' || permsArr.includes('approve'));
   document.getElementById('btn-approve-w').classList.toggle('hidden', !isW || !canApprove);
   document.getElementById('btn-approve-r').classList.toggle('hidden',  isW || !canApprove);
+  _showSaveFirstHint(!isApproved && !docSaved && (role === 'admin' || permsArr.includes('approve')));
   document.getElementById('btn-approve-w').disabled = false;
   document.getElementById('btn-approve-r').disabled = false;
   document.getElementById('btn-approve-w').textContent = '✔ อนุมัติ';
@@ -2123,7 +2128,9 @@ function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingD
 
   const roleT    = currentUser?.role || '';
   const permsArrT = (currentUser?.permissions || '').split(',').map(p => p.trim());
-  const canApproveT = !isApproved && (roleT === 'admin' || permsArrT.includes('approve'));
+  docSaved = isApproved || !!existingDocNo;
+  const canApproveT = !isApproved && docSaved && (roleT === 'admin' || permsArrT.includes('approve'));
+  _showSaveFirstHint(!isApproved && !docSaved && (roleT === 'admin' || permsArrT.includes('approve')));
   const btnT = document.getElementById('btn-approve-t');
   btnT.classList.toggle('hidden', !canApproveT);
   btnT.disabled = false; btnT.textContent = '✔ อนุมัติ';
@@ -2167,7 +2174,8 @@ function saveDraft() {
     .then(r => {
       btn.disabled = false; btn.textContent = '💾 บันทึก';
       if (r.success) {
-        showResult(`💾 บันทึกเอกสาร ${docNo} แล้ว`, true);
+        _unlockApproveAfterSave();
+        showResult(`💾 บันทึกเอกสาร ${docNo} แล้ว — กด "✔ อนุมัติ" ได้แล้ว`, true);
       } else {
         alert('บันทึกไม่สำเร็จ');
       }
@@ -2183,6 +2191,37 @@ function loadDocs() {
   callAPI('getDrafts')
     .then(res => { allDocs = res || []; renderDocList(); })
     .catch(e => { document.getElementById('doc-list').innerHTML = '<p style="color:#dc2626;font-size:13px">❌ โหลดไม่ได้</p>'; });
+}
+
+// ป้ายเตือนว่าต้องกดบันทึกก่อนถึงจะอนุมัติได้
+function _showSaveFirstHint(show) {
+  let el = document.getElementById('save-first-hint');
+  if (!show) { if (el) el.remove(); return; }
+  if (el) return;
+  el = document.createElement('div');
+  el.id = 'save-first-hint';
+  el.style.cssText = 'background:#fffbeb;border:1.5px solid #fbbf24;border-radius:8px;' +
+    'padding:9px 13px;margin-bottom:12px;font-size:13px;color:#92400e;font-weight:600';
+  el.innerHTML = '💾 กด <b>"บันทึก"</b> ก่อน แล้วปุ่ม <b>"✔ อนุมัติ"</b> จะขึ้นมา — ' +
+    'เพื่อให้เอกสารถูกเก็บไว้ค้นหาย้อนหลังได้';
+  const area = document.getElementById('doc-area');
+  if (area) area.insertBefore(el, area.firstChild);
+}
+
+// บันทึกสำเร็จ → ปลดล็อกปุ่มอนุมัติ
+function _unlockApproveAfterSave() {
+  docSaved = true;
+  _showSaveFirstHint(false);
+  const role = currentUser?.role || '';
+  const perms = (currentUser?.permissions || '').split(',').map(p => p.trim());
+  if (!(role === 'admin' || perms.includes('approve'))) return;
+  if (currentDocType === 'ย้ายโกดัง') {
+    document.getElementById('btn-approve-t')?.classList.remove('hidden');
+  } else if (currentDocType === 'เบิก') {
+    document.getElementById('btn-approve-w')?.classList.remove('hidden');
+  } else {
+    document.getElementById('btn-approve-r')?.classList.remove('hidden');
+  }
 }
 
 function setDocFilter(f, btn) {
@@ -2787,7 +2826,9 @@ function renderReport() {
       <td style="padding:6px 8px;text-align:center"><span class="${qtyCls}">${qtySign}${r.qty} ${r.unit}</span></td>
       <td style="padding:6px 8px;text-align:center">${r.stockAfter} ${r.unit}</td>
       <td style="padding:6px 8px">${r.operator}</td>
-      <td style="padding:6px 8px;font-size:10px;color:#0369a1;font-weight:600">${r.docNo||'—'}</td>
+      <td style="padding:6px 8px;font-size:10px;font-weight:600">${r.docNo
+        ? `<span onclick="openDraftDoc('${r.docNo}')" style="color:#0369a1;cursor:pointer;text-decoration:underline" title="เปิดดูเอกสาร">${r.docNo}</span>`
+        : '<span style="color:#9ca3af">—</span>'}</td>
       <td style="padding:6px 8px;color:#6b7280;font-size:11px">${r.note||'—'}</td>
     </tr>`;
   }).join('');
