@@ -653,6 +653,37 @@ function _getDocDateStr() {
   return d ? d.toISOString() : '';
 }
 
+// ┌──────────────────────────────────────────────────────────────┐
+// │  ⭐ จำกัดการลงวันที่เอกสารย้อนหลัง — ต้องตรงกับ MAX_BACKDATE_DAYS │
+// │  ใน Code.gs  (เซิร์ฟเวอร์ตรวจซ้ำอีกชั้น หลบที่หน้าจอไม่ได้)        │
+// └──────────────────────────────────────────────────────────────┘
+const MAX_BACKDATE_DAYS = 7;
+
+function _canBackdateFreely() {
+  const r = String(currentUser?.role || '').trim().toLowerCase();
+  return r === 'admin' || r === 'manager' || r === 'ผู้จัดการ';
+}
+
+// คืน null ถ้าผ่าน, หรือข้อความ error ถ้าไม่ผ่าน
+function _checkDocDateClient() {
+  const raw = document.getElementById('doc-datetime')?.value || '';
+  if (!raw.trim()) return null;
+  const d = _parseDMY(raw);
+  if (!d) return 'วันที่เอกสารไม่ถูกต้อง — ใส่รูปแบบ วว/ดด/ปปปป เช่น ' + _fmtD(new Date());
+  if (_canBackdateFreely()) return null;
+  const t  = new Date();
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const t0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const diff = Math.round((t0 - d0) / 86400000);
+  if (diff > MAX_BACKDATE_DAYS)
+    return `ลงวันที่ย้อนหลังได้ไม่เกิน ${MAX_BACKDATE_DAYS} วัน (ใบนี้ย้อน ${diff} วัน)\n` +
+           `ถ้าจำเป็นต้องให้ admin หรือผู้จัดการทำให้`;
+  if (diff < 0)
+    return `ลงวันที่ล่วงหน้าไม่ได้ (ใบนี้เป็นวันที่ ${_fmtD(d)})\n` +
+           `ถ้าจำเป็นต้องให้ admin หรือผู้จัดการทำให้`;
+  return null;
+}
+
 function _versionMismatchMsg(got) {
   return '⚠️ ระบบฝั่งเซิร์ฟเวอร์ยังไม่ได้อัปเดต\n\n'
        + 'หน้าเว็บต้องการเวอร์ชัน: ' + REQUIRED_API_VERSION + '\n'
@@ -2168,6 +2199,8 @@ function saveDraft() {
     });
   }
   const dateStr = _getDocDateStr();
+  const _dateErr = _checkDocDateClient();
+  if (_dateErr) { alert('⛔ ' + _dateErr); return; }
   // อ่าน op/note จากช่อง input ที่แก้ไขได้ (ถ้ามี)
   const editOp   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const editNote = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
@@ -2175,7 +2208,7 @@ function saveDraft() {
   currentDocNote = editNote;
   const btn = document.getElementById('btn-save');
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
-  callAPI('saveDraft', { docNo, type: currentDocType, items, op: editOp, note: editNote, dateStr })
+  callAPI('saveDraft', { docNo, type: currentDocType, items, op: editOp, note: editNote, dateStr, username: currentUser?.username || '' })
     .then(r => {
       btn.disabled = false; btn.textContent = '💾 บันทึก';
       if (r.success && r.verified) {
@@ -2329,6 +2362,9 @@ function renderDocList() {
     const cls       = isPending ? 'pending' : 'approved';
     const sbCls     = isPending ? 'pending' : 'approved';
     const dt        = d.datetime ? _fmtDT(d.datetime) : (d.createdAt || '');
+    // ⭐ ถ้าวันที่เอกสารไม่ตรงกับวันที่ระบบบันทึกจริง ให้โชว์ createdAt กำกับไว้
+    // เพื่อให้เห็นทันทีว่าใบนี้ถูกลงวันที่ย้อนหลัง (หรือล่วงหน้า)
+    const backdated = _backdateNote(d.datetime, d.createdAt);
     return `<div class="doc-card ${cls}" onclick="openDraftDoc('${d.docNo}')">
       <div class="doc-card-header">
         <span class="doc-card-no">${typeIcon[d.type]||''} ${d.docNo}</span>
@@ -2338,8 +2374,25 @@ function renderDocList() {
           `<button class="btn-delete-doc" onclick="event.stopPropagation();deleteDraftDoc('${d.docNo}')">🗑</button>` : ''}
       </div>
       <div class="doc-card-meta">${d.operator} · ${dt}${d.note?' · '+d.note:''}</div>
+      ${backdated}
     </div>`;
   }).join('');
+}
+
+// ⭐ เทียบวันที่เอกสาร กับ วันที่ระบบบันทึกจริง (createdAt)
+// ถ้าคนละวัน ให้คืน HTML ป้ายกำกับ ไม่ตรงกัน = ใบนี้ถูกลงวันที่ย้อนหลัง/ล่วงหน้า
+function _backdateNote(docDate, createdAt) {
+  const a = _parseDMY(docDate) || (docDate ? new Date(docDate) : null);
+  const b = _parseDMY(createdAt) || (createdAt ? new Date(createdAt) : null);
+  if (!a || !b || isNaN(a.getTime()) || isNaN(b.getTime())) return '';
+  const d0 = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const t0 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  const diff = Math.round((t0 - d0) / 86400000);
+  if (diff === 0) return '';
+  const word = diff > 0 ? `ย้อนหลัง ${diff} วัน` : `ล่วงหน้า ${-diff} วัน`;
+  return `<div style="font-size:10.5px;color:#92400e;background:#fffbeb;` +
+         `border-left:3px solid #fbbf24;padding:3px 7px;margin-top:4px;border-radius:3px">` +
+         `⚠️ ลงวันที่${word} · ระบบบันทึกจริง ${_fmtD(b)}</div>`;
 }
 
 function openDraftDoc(dn) {
@@ -2404,11 +2457,13 @@ function approve(type) {
   const { items, hasErr } = _collectDocItems();
   if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
   const dateStr = _getDocDateStr();
+  const _dateErr = _checkDocDateClient();
+  if (_dateErr) { alert('⛔ ' + _dateErr); return; }
   // อ่าน op/note จากช่อง input ที่แก้ไขได้
   const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
   _setApproveLoading(true);
-  callAPI('submitBatch', { type, items, op, note, dateStr, docNo })
+  callAPI('submitBatch', { type, items, op, note, dateStr, docNo, username: currentUser?.username || '' })
     .then(r => {
       if (r.success) {
         _markApproved();
@@ -2433,11 +2488,13 @@ function approveTransfer() {
   });
   if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
   const dateStr = _getDocDateStr();
+  const _dateErr = _checkDocDateClient();
+  if (_dateErr) { alert('⛔ ' + _dateErr); return; }
   // อ่าน op/note จากช่อง input ที่แก้ไขได้
   const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
   _setApproveLoading(true);
-  callAPI('transferBatch', { items, op, note, dateStr, transferDocNo: docNo })
+  callAPI('transferBatch', { items, op, note, dateStr, transferDocNo: docNo, username: currentUser?.username || '' })
     .then(r => {
       if (r.success) {
         _markApproved();
