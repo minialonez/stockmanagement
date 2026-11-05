@@ -586,7 +586,7 @@ input:focus, select:focus { border-color: #1a56db; outline: none; }
     <div id="modal-inner">
       <div class="modal-topbar">
         <span class="modal-topbar-title" id="modal-title">เอกสาร</span>
-        <button class="mbar-btn mbar-print" onclick="window.print()">🖨️</button>
+        <button class="mbar-btn mbar-print hidden" id="btn-print" onclick="window.print()">🖨️</button>
         <button class="mbar-btn mbar-save"  id="btn-save"      onclick="saveDraft()">💾 บันทึก</button>
         <button class="mbar-btn mbar-approve-w hidden" id="btn-approve-w" onclick="approve('เบิก')">✔ อนุมัติ</button>
         <button class="mbar-btn mbar-approve-r hidden" id="btn-approve-r" onclick="approve('รับเข้า')">✔ อนุมัติ</button>
@@ -2025,7 +2025,9 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
   const canApprove = !isApproved && docSaved && (role === 'admin' || permsArr.includes('approve'));
   document.getElementById('btn-approve-w').classList.toggle('hidden', !isW || !canApprove);
   document.getElementById('btn-approve-r').classList.toggle('hidden',  isW || !canApprove);
-  _showSaveFirstHint(!isApproved && !docSaved && (role === 'admin' || permsArr.includes('approve')));
+  // ⭐ ปุ่มปริ้นก็ต้องกดบันทึกก่อน — กันปริ้นใบที่ยังไม่มีอยู่ในระบบออกไปใช้งาน
+  document.getElementById('btn-print')?.classList.toggle('hidden', !docSaved);
+  _showSaveFirstHint(!isApproved && !docSaved);
   document.getElementById('btn-approve-w').disabled = false;
   document.getElementById('btn-approve-r').disabled = false;
   document.getElementById('btn-approve-w').textContent = '✔ อนุมัติ';
@@ -2132,7 +2134,8 @@ function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingD
   const permsArrT = (currentUser?.permissions || '').split(',').map(p => p.trim());
   docSaved = isApproved || !!existingDocNo;
   const canApproveT = !isApproved && docSaved && (roleT === 'admin' || permsArrT.includes('approve'));
-  _showSaveFirstHint(!isApproved && !docSaved && (roleT === 'admin' || permsArrT.includes('approve')));
+  document.getElementById('btn-print')?.classList.toggle('hidden', !docSaved);
+  _showSaveFirstHint(!isApproved && !docSaved);
   const btnT = document.getElementById('btn-approve-t');
   btnT.classList.toggle('hidden', !canApproveT);
   btnT.disabled = false; btnT.textContent = '✔ อนุมัติ';
@@ -2216,6 +2219,10 @@ function _verifySaved(docNo, btn, whyMsg) {
 function _saveFailed(docNo, reason) {
   if (typeof docSaved !== 'undefined') docSaved = false;
   _showSaveFirstHint(false);
+  // ล็อกปริ้น/อนุมัติกลับ — ใบนี้ยังไม่มีอยู่ในระบบ
+  document.getElementById('btn-print')?.classList.add('hidden');
+  ['btn-approve-w','btn-approve-r','btn-approve-t']
+    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
   let el = document.getElementById('save-failed-banner');
   if (!el) {
     el = document.createElement('div');
@@ -2254,8 +2261,8 @@ function _showSaveFirstHint(show) {
   el.id = 'save-first-hint';
   el.style.cssText = 'background:#fffbeb;border:1.5px solid #fbbf24;border-radius:8px;' +
     'padding:9px 13px;margin-bottom:12px;font-size:13px;color:#92400e;font-weight:600';
-  el.innerHTML = '💾 กด <b>"บันทึก"</b> ก่อน แล้วปุ่ม <b>"✔ อนุมัติ"</b> จะขึ้นมา — ' +
-    'เพื่อให้เอกสารถูกเก็บไว้ค้นหาย้อนหลังได้';
+  el.innerHTML = '💾 กด <b>"บันทึก"</b> ก่อน แล้วปุ่ม <b>"🖨️ ปริ้น"</b> และ <b>"✔ อนุมัติ"</b> จะขึ้นมา — ' +
+    'ถ้ายังไม่กดบันทึก เอกสารใบนี้ยังไม่มีอยู่ในระบบ ค้นหาย้อนหลังไม่เจอ';
   const area = document.getElementById('doc-area');
   if (area) area.insertBefore(el, area.firstChild);
 }
@@ -2265,6 +2272,7 @@ function _unlockApproveAfterSave() {
   docSaved = true;
   _showSaveFirstHint(false);
   document.getElementById('save-failed-banner')?.remove();
+  document.getElementById('btn-print')?.classList.remove('hidden');
   const role = currentUser?.role || '';
   const perms = (currentUser?.permissions || '').split(',').map(p => p.trim());
   if (!(role === 'admin' || perms.includes('approve'))) return;
