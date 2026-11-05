@@ -609,7 +609,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycby_XvWw9U_y_hc9L5vBkUtd
 //  API VERSION — ต้องตรงกับ API_VERSION ใน Code.gs
 //  ⚠️ แก้เลขนี้พร้อมกับ Code.gs ทุกครั้ง แล้ว deploy ทั้งคู่
 // ════════════════════════════════════════════════════
-const REQUIRED_API_VERSION = '2026-11-05';
+const REQUIRED_API_VERSION = '2026-11-06';
 
 // ════════════════════════════════════════════════════
 //  รูปแบบวันที่ทั้งระบบ = dd/mm/yyyy
@@ -2175,14 +2175,64 @@ function saveDraft() {
   callAPI('saveDraft', { docNo, type: currentDocType, items, op: editOp, note: editNote, dateStr })
     .then(r => {
       btn.disabled = false; btn.textContent = '💾 บันทึก';
-      if (r.success) {
+      if (r.success && r.verified) {
         _unlockApproveAfterSave();
         showResult(`💾 บันทึกเอกสาร ${docNo} แล้ว — กด "✔ อนุมัติ" ได้แล้ว`, true);
+      } else if (r.success) {
+        // เซิร์ฟเวอร์เก่ายังไม่ส่ง verified → เช็กเองให้ชัวร์
+        _verifySaved(docNo, btn);
       } else {
-        alert('บันทึกไม่สำเร็จ');
+        // ⭐ FIX: เดิมโชว์แค่ "บันทึกไม่สำเร็จ" ทิ้งเหตุผลจริงไปเลย
+        // ทำให้พนักงานไม่รู้ว่าเอกสารไม่ได้ลงชีต แล้วเข้าใจว่าบันทึกแล้ว
+        _saveFailed(docNo, r.error || 'ไม่ทราบสาเหตุ');
       }
     })
-    .catch(e => { btn.disabled = false; btn.textContent = '💾 บันทึก'; alert('❌ ' + e.message); });
+    .catch(e => {
+      btn.disabled = false; btn.textContent = '💾 บันทึก';
+      // หมดเวลารอ/เน็ตหลุด — ไม่รู้ว่าลงชีตไปแล้วหรือยัง ต้องไปเช็กให้ผู้ใช้
+      _verifySaved(docNo, btn, e.message);
+    });
+}
+
+// ⭐ เช็กกับชีตว่าเอกสารถูกบันทึกจริงหรือไม่ แล้วบอกผู้ใช้ตรงๆ
+function _verifySaved(docNo, btn, whyMsg) {
+  showResult(`⏳ กำลังตรวจสอบกับเซิร์ฟเวอร์ว่าเอกสาร ${docNo} ถูกบันทึกหรือไม่...`, true);
+  callAPI('verifyDraftSaved', { docNo })
+    .then(v => {
+      if (v && v.success && v.exists) {
+        _unlockApproveAfterSave();
+        showResult(`💾 บันทึกเอกสาร ${docNo} สำเร็จ (ตรวจสอบแล้ว) — กด "✔ อนุมัติ" ได้แล้ว`, true);
+      } else {
+        _saveFailed(docNo, whyMsg || 'เอกสารไม่อยู่ในชีต');
+      }
+    })
+    .catch(() => {
+      _saveFailed(docNo, (whyMsg ? whyMsg + ' — ' : '') +
+        'และตรวจสอบย้อนกลับไม่ได้ กรุณาเปิดหน้าเอกสารเช็กด้วยตัวเองก่อนกดซ้ำ');
+    });
+}
+
+// ⭐ แจ้งเตือนแบบค้างหน้าจอ ไม่ใช่ alert ที่กดปิดแล้วลืม
+function _saveFailed(docNo, reason) {
+  if (typeof docSaved !== 'undefined') docSaved = false;
+  _showSaveFirstHint(false);
+  let el = document.getElementById('save-failed-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'save-failed-banner';
+    el.style.cssText = 'background:#fef2f2;border:2px solid #dc2626;border-radius:8px;' +
+      'padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:#991b1b;font-weight:700;line-height:1.6';
+    const host = document.getElementById('doc-tbody')?.closest('div')?.parentElement
+              || document.getElementById('doc-list')?.parentElement
+              || document.body;
+    host.insertBefore(el, host.firstChild);
+  }
+  el.innerHTML =
+    `❌ <u>เอกสาร ${docNo} ยังไม่ได้ถูกบันทึกลงระบบ</u><br>` +
+    `สาเหตุ: ${reason}<br>` +
+    `⚠️ ห้ามกดอนุมัติ และห้ามปิดหน้านี้ — กด "💾 บันทึก" อีกครั้งจนขึ้นว่าสำเร็จ ` +
+    `มิฉะนั้นเอกสารใบนี้จะหายไปทั้งใบ`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ════════════════════════════════════════════════════
@@ -2214,6 +2264,7 @@ function _showSaveFirstHint(show) {
 function _unlockApproveAfterSave() {
   docSaved = true;
   _showSaveFirstHint(false);
+  document.getElementById('save-failed-banner')?.remove();
   const role = currentUser?.role || '';
   const perms = (currentUser?.permissions || '').split(',').map(p => p.trim());
   if (!(role === 'admin' || perms.includes('approve'))) return;
