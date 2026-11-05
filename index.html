@@ -607,7 +607,49 @@ const API_URL = 'https://script.google.com/macros/s/AKfycby_XvWw9U_y_hc9L5vBkUtd
 //  API VERSION — ต้องตรงกับ API_VERSION ใน Code.gs
 //  ⚠️ แก้เลขนี้พร้อมกับ Code.gs ทุกครั้ง แล้ว deploy ทั้งคู่
 // ════════════════════════════════════════════════════
-const REQUIRED_API_VERSION = '2026-10-05';
+const REQUIRED_API_VERSION = '2026-11-05';
+
+// ════════════════════════════════════════════════════
+//  รูปแบบวันที่ทั้งระบบ = dd/mm/yyyy
+//  ⚠️ ต้องตรงกับ USE_BUDDHIST_YEAR ใน Code.gs
+// ════════════════════════════════════════════════════
+const USE_BUDDHIST_YEAR = false;   // false = ค.ศ. 2026 | true = พ.ศ. 2569
+
+const _p2 = n => String(n).padStart(2, '0');
+const _yr = d => d.getFullYear() + (USE_BUDDHIST_YEAR ? 543 : 0);
+
+function _fmtD(v) {
+  if (!v) return '';
+  const d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  return `${_p2(d.getDate())}/${_p2(d.getMonth()+1)}/${_yr(d)}`;
+}
+function _fmtDT(v) {
+  if (!v) return '';
+  const d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  return `${_fmtD(d)} ${_p2(d.getHours())}:${_p2(d.getMinutes())}`;
+}
+// "dd/mm/yyyy hh:mm" → Date (รับได้ทั้ง ค.ศ. และ พ.ศ.)
+function _parseDMY(s) {
+  const m = String(s || '').trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T,]+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  let y = +m[3]; if (y > 2400) y -= 543;
+  const d = new Date(y, +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0));
+  return isNaN(d.getTime()) ? null : d;
+}
+// ค่าที่โชว์ในช่องวันที่ของเอกสาร
+function _dtDisplay(dt) {
+  const d = dt ? new Date(dt) : new Date();
+  return _fmtDT(isNaN(d.getTime()) ? new Date() : d);
+}
+// อ่านช่องวันที่ในเอกสาร → ISO (ให้ฝั่งเซิร์ฟเวอร์อ่านได้แน่นอน)
+function _getDocDateStr() {
+  const raw = document.getElementById('doc-datetime')?.value || '';
+  const d = _parseDMY(raw);
+  return d ? d.toISOString() : '';
+}
 
 function _versionMismatchMsg(got) {
   return '⚠️ ระบบฝั่งเซิร์ฟเวอร์ยังไม่ได้อัปเดต\n\n'
@@ -1858,7 +1900,7 @@ function _dtLocal(dt) {
 function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, existingDt) {
   const isW = type === 'เบิก';
   docNo = existingDocNo || _genDocNo(isW ? 'DOC' : 'RCV');
-  const dtVal = _dtLocal(existingDt);
+  const dtVal = _dtDisplay(existingDt);
 
   // [FIX #2] อัปเดต state
   currentDocOp   = op;
@@ -1911,7 +1953,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
     <div class="doc-meta">
       <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
       <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
-        <input type="datetime-local" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''}></div>
+        <input type="text" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''} placeholder="วว/ดด/ปปปป ชช:นน" style="width:155px"></div>
       <div class="doc-meta-item"><span class="doc-meta-label">${isW?'ผู้เบิก':'ผู้รับของ'}:</span>
         ${isApproved ? op : `<input id="doc-op" value="${op}" style="font-size:12px;padding:3px 6px;margin:0;width:auto;border:1px solid #93c5fd;border-radius:4px">`}
       </div>
@@ -1986,7 +2028,7 @@ function buildDocHTML(type, allItems, op, note, isApproved, existingDocNo, exist
 
 function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingDocNo, existingDt) {
   docNo = existingDocNo || _genDocNo('TRF');
-  const dtVal = _dtLocal(existingDt);
+  const dtVal = _dtDisplay(existingDt);
 
   // [FIX #2] อัปเดต state
   currentDocOp   = op;
@@ -2021,7 +2063,7 @@ function buildTransferHTML(allItems, fromW, toW, op, note, isApproved, existingD
     <div class="doc-meta">
       <div class="doc-meta-item"><span class="doc-meta-label">เลขที่:</span> ${docNo}</div>
       <div class="doc-meta-item"><span class="doc-meta-label">วันที่-เวลา:</span>
-        <input type="datetime-local" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''}></div>
+        <input type="text" id="doc-datetime" value="${dtVal}" ${isApproved?'readonly':''} placeholder="วว/ดด/ปปปป ชช:นน" style="width:155px"></div>
       <div class="doc-meta-item"><span class="doc-meta-label">จากโกดัง:</span> <strong style="color:#dc2626">${fromW}</strong></div>
       <div class="doc-meta-item"><span class="doc-meta-label">ไปโกดัง:</span> <strong style="color:#16a34a">${toW}</strong></div>
       <div class="doc-meta-item"><span class="doc-meta-label">ผู้ดำเนินการ:</span>
@@ -2113,7 +2155,7 @@ function saveDraft() {
         name: inp.dataset.name, unit: inp.dataset.unit, floor: inp.dataset.floor, remark });
     });
   }
-  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  const dateStr = _getDocDateStr();
   // อ่าน op/note จากช่อง input ที่แก้ไขได้ (ถ้ามี)
   const editOp   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const editNote = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
@@ -2167,7 +2209,7 @@ function renderDocList() {
     const isPending = d.status === 'รอการอนุมัติ';
     const cls       = isPending ? 'pending' : 'approved';
     const sbCls     = isPending ? 'pending' : 'approved';
-    const dt        = d.datetime ? new Date(d.datetime).toLocaleString('th-TH') : d.createdAt || '';
+    const dt        = d.datetime ? _fmtDT(d.datetime) : (d.createdAt || '');
     return `<div class="doc-card ${cls}" onclick="openDraftDoc('${d.docNo}')">
       <div class="doc-card-header">
         <span class="doc-card-no">${typeIcon[d.type]||''} ${d.docNo}</span>
@@ -2241,7 +2283,7 @@ function _collectDocItems() {
 function approve(type) {
   const { items, hasErr } = _collectDocItems();
   if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
-  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  const dateStr = _getDocDateStr();
   // อ่าน op/note จากช่อง input ที่แก้ไขได้
   const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
@@ -2270,7 +2312,7 @@ function approveTransfer() {
       name:inp.dataset.name, unit:inp.dataset.unit, floor:inp.dataset.floor, remark:tremark2 });
   });
   if (hasErr||!items.length) { alert('กรุณาตรวจสอบจำนวน'); return; }
-  const dateStr = document.getElementById('doc-datetime')?.value || '';
+  const dateStr = _getDocDateStr();
   // อ่าน op/note จากช่อง input ที่แก้ไขได้
   const op   = document.getElementById('doc-op')?.value.trim()   || currentDocOp || currentUser.displayName;
   const note = document.getElementById('doc-note')?.value.trim() || currentDocNote || '';
@@ -3671,7 +3713,7 @@ function _renderPODocument() {
   const supInfo = window._poSupData?.[supplier] || {};
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
-  const dateStr = `${now.getDate()}/${pad(now.getMonth()+1)}/${now.getFullYear()+543}`;
+  const dateStr = _fmtD(now);
   const poNo = `PO-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(_poCurrentIdx+1)}`;
 
   const rowsHtml = items.map((it, idx) => `
